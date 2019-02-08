@@ -1,6 +1,9 @@
-use std::error::*;
+use std::error::Error;
+use std::io;
+use std::io::prelude::*;
 use std::net::{SocketAddr,ToSocketAddrs,TcpStream};
-use std::time::Duration;
+use std::time::{Duration,Instant};
+use std::thread;
 
 use clap::{App,AppSettings,Arg};
 use console::style;
@@ -33,33 +36,85 @@ fn main() {
 
     if let Err(err) = socket_addr_result {
         // Format error.
-        println!("{}", style(fmt_err(&err)).red());
+        println!("{}", style(&err).red());
         return;
     }
 
     let addr = socket_addr_result.unwrap().next().unwrap();
 
     // Warmup.
-    print!("Connecting to {} (warmup): ", addr);
-    ping(&addr);
+    print!("> {} (warmup): ", addr);
+    io::stdout().flush().unwrap();
+    ping(&addr).unwrap_or_default();
 
-    // Actual ping.
-    for i in 0..count {
-        print!("Connecting to {}: ", addr);
-        ping(&addr);
+    // Actual timed ping.
+    let mut latencies = Vec::new();
+
+    for _i in 0..count {
+        thread::sleep(Duration::from_millis(500));
+        print!("> {}: ", addr);
+
+        if let Some(latency) = ping(&addr).ok() {
+            latencies.push(latency);
+        }
+    }
+
+    // Print stats (psping format):
+    println!();
+    println!("  Sent = {:.2}, Received = {:.2}", count, latencies.len());
+
+    if !latencies.is_empty() {
+        println!("  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms", min(&latencies), max(&latencies), avg(&latencies));
     }
 }
 
-fn ping(addr: &SocketAddr) {
+fn ping(addr: &SocketAddr) -> Result<f64, std::io::Error> {
+    let start = Instant::now();
     let res = TcpStream::connect_timeout(&addr, Duration::from_millis(5000));
 
     if let Err(err) = res {
-        println!(); // Complete current line.
-        println!("{} {}", style("Can't connect.").red(), style(err).red());
-        return;
+        println!("{}", style(&err).red());
+        Err(err)
+    }
+    else {
+        let finish = Instant::now();
+        let diff = finish - start;
+        let diff_ns = diff.subsec_nanos();
+        let diff_ms = diff_ns as f64 / 1000000 as f64 + diff.as_secs() as f64 * 1000 as f64;
+
+        println!("{:.2} ms", diff_ms);
+        Ok(diff_ms)
+    }
+}
+
+fn min(numbers: &[f64]) -> &f64 {
+    let mut i = numbers.iter();
+    let mut m = i.next().unwrap();
+
+    while let Some(n) = i.next() {
+        if n < m {
+            m = n;
+        }
     }
 
-    println!("{}", style("success!").green());
+    m
+}
+
+fn max(numbers: &[f64]) -> &f64 {
+    let mut i = numbers.iter();
+    let mut m = i.next().unwrap();
+
+    while let Some(n) = i.next() {
+        if n > m {
+            m = n;
+        }
+    }
+
+    m
+}
+
+fn avg(numbers: &[f64]) -> f64 {
+    numbers.iter().sum::<f64>() as f64 / numbers.len() as f64
 }
 
 fn fmt_err(err: &Error) -> String {
