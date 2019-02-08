@@ -1,3 +1,4 @@
+use std::error::*;
 use std::net::{ToSocketAddrs,TcpStream};
 use std::time::Duration;
 
@@ -15,32 +16,15 @@ fn main() {
         .get_matches();
 
     let target = matches.value_of("target").unwrap();
-    let split: Vec<&str> = target.split(':').collect();
-    
-    assert!(split.len() != 0);
+    let socket_addr_result = target.to_socket_addrs();
 
-    let host = split[0];
-    let mut port: Option<u16> = None;
-    
-    if split.len() > 1 {
-        port = Some(split[1].parse::<u16>().unwrap());
-    }
-
-    if port.is_none() {
-        println!("Port must be specified. See --help for more info.");
+    if let Err(err) = socket_addr_result {
+        // Format error.
+        println!("{}", style(fmt_err(&err)).red());
         return;
     }
 
-    // DNS.
-    let socket_parse_result = target.to_socket_addrs();
-
-    if let Err(err) = socket_parse_result {
-        println!("{} {}", style("DNS resolution failed.").red(), style(err).red());
-        return;
-    }
-
-    let addr = socket_parse_result.unwrap().next().unwrap();
-
+    let addr = socket_addr_result.unwrap().next().unwrap();
     println!("Connecting to {}", addr);
 
     // Connect.
@@ -52,4 +36,33 @@ fn main() {
     }
 
     println!("{}", style("Success!").green());
+}
+
+fn fmt_err(err: &Error) -> String {
+    let mut desc = Vec::new();
+    {
+        let mut desc_chars = err.description().chars();
+
+        while let Some(c) = desc_chars.next() {
+            // Capitalise first letter.
+            if desc.is_empty() && c.is_lowercase() {
+                for u in c.to_uppercase() {
+                    desc.push(u);
+                }
+            }
+            else {
+                desc.push(c);
+            }
+        }
+    }
+
+    // Ensure there is a full stop at the end.
+    if let Some(last_char) = desc.last() {
+        if last_char.to_owned() != '.' {
+            desc.push('.');
+        }
+    }
+
+    // Collect Vec<char> -> String.
+    desc.into_iter().collect()
 }
