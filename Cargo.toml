@@ -1,0 +1,19 @@
+[package]
+name = "tcping"
+version = "0.1.0"
+authors = ["Kirill <kirill.shlenskiy@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+chrono = "0.4.6"
+clap = "2.32.0"
+console = "0.7.5"
+
+[profile.release]
+lto = true
+panic = 'abort'
+
+[[bin]]
+name = "tcping"
+test = false
+doc = false
