@@ -13,8 +13,8 @@ fn main() {
         .version("0.1")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
         .arg(Arg::from_usage("<target> 'TCP ping target in {host:port} format (i.e. google.com:80)'"))
-        .arg(Arg::from_usage("-c, --count 'Number of requests (not counting warmup) to issue"))
-        .arg(Arg::from_usage("-t, --timeout 'Connection timeout in milliseconds'"))
+        .arg(Arg::from_usage("-c, --count=[count] 'Number of requests (not counting warmup) to issue"))
+        .arg(Arg::from_usage("-t, --timeout=[timeout] 'Connection timeout in seconds; the default is 4'"))
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::DisableVersion)
         .get_matches();
@@ -31,12 +31,23 @@ fn main() {
         }
     }
 
+    let timeout_match = matches.value_of("timeout");
+    let mut timeout_secs = 4; // Default.
+
+    if let Some(timeout_str) = timeout_match {
+        timeout_secs = timeout_str.parse::<i32>().expect("Not a valid integer.");
+
+        if timeout_secs < 0 {
+            println!("Invalid timeout.");
+            return;
+        }
+    }
+
     let target = matches.value_of("target").unwrap();
     let socket_addr_result = target.to_socket_addrs();
 
     if let Err(err) = socket_addr_result {
-        // Format error.
-        println!("{}", style(&err).red());
+        println!("{}", style(fmt_err(&err)).red());
         return;
     }
 
@@ -45,7 +56,7 @@ fn main() {
     // Warmup.
     print!("> {} (warmup): ", addr);
     io::stdout().flush().unwrap();
-    ping(&addr).unwrap_or_default();
+    ping(&addr, timeout_secs).unwrap_or_default();
 
     // Actual timed ping.
     let mut latencies = Vec::new();
@@ -54,23 +65,30 @@ fn main() {
         thread::sleep(Duration::from_millis(500));
         print!("> {}: ", addr);
 
-        if let Some(latency) = ping(&addr).ok() {
+        if let Some(latency) = ping(&addr, timeout_secs).ok() {
             latencies.push(latency);
         }
     }
 
     // Print stats (psping format):
     println!();
-    println!("  Sent = {:.2}, Received = {:.2}", count, latencies.len());
+    let received_percent = latencies.len() as i32 * 100 / count;
+    let formatted_percent = if received_percent == 100 {
+        format!("{}{}", style(&received_percent).green(), style("%").green())
+    }
+    else {
+        format!("{}{}", style(&received_percent).red(), style("%").red())
+    };
+    println!("  Sent = {:.2}, Received = {:.2} ({})", count, latencies.len(), formatted_percent);
 
     if !latencies.is_empty() {
         println!("  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms", min(&latencies), max(&latencies), avg(&latencies));
     }
 }
 
-fn ping(addr: &SocketAddr) -> Result<f64, std::io::Error> {
+fn ping(addr: &SocketAddr, timeout_secs: i32) -> Result<f64, std::io::Error> {
     let start = Instant::now();
-    let res = TcpStream::connect_timeout(&addr, Duration::from_millis(5000));
+    let res = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs as u64));
 
     if let Err(err) = res {
         println!("{}", style(&err).red());
@@ -82,7 +100,7 @@ fn ping(addr: &SocketAddr) -> Result<f64, std::io::Error> {
         let diff_ns = diff.subsec_nanos();
         let diff_ms = diff_ns as f64 / 1000000 as f64 + diff.as_secs() as f64 * 1000 as f64;
 
-        println!("{:.2} ms", diff_ms);
+        println!("{:.2} ms", style(diff_ms).green());
         Ok(diff_ms)
     }
 }
