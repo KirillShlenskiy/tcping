@@ -1,7 +1,7 @@
 [package]
 name = "tcping"
-version = "0.1.0"
-authors = ["Kirill <kirill.shlenskiy@gmail.com>"]
+version = "0.2.0"
+authors = ["Kirill Shlenskiy"]
 edition = "2018"
 
 [dependencies]
