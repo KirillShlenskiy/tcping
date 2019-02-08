@@ -18,7 +18,7 @@ fn main() {
         .version("0.1")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
         .arg(Arg::from_usage("<target> 'TCP ping target in {host:port} format (i.e. google.com:80)'"))
-        .arg(Arg::from_usage("-c, --count=[count] 'Number of requests (not counting warmup) to issue"))
+        .arg(Arg::from_usage("-c, --count=[count] 'Number of requests (not counting warmup) to dispatch'"))
         .arg(Arg::from_usage("-t, --timeout=[timeout] 'Connection timeout in seconds; the default is 4'"))
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::DisableVersion)
@@ -52,7 +52,16 @@ fn main() {
     let socket_addr_result = target.to_socket_addrs();
 
     if let Err(err) = socket_addr_result {
-        println!("{}", style(fmt_err(&err)).red());
+        let error_text = {
+            if format!("{}", err) == "invalid socket address" {
+                String::from("Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').")
+            }
+            else {
+                fmt_err(&err)
+            }
+        };
+
+        println!("{}", error_text);
         return;
     }
 
