@@ -1,3 +1,6 @@
+extern crate clap;
+extern crate console;
+
 use std::error::Error;
 use std::io;
 use std::io::prelude::*;
@@ -5,8 +8,10 @@ use std::net::{SocketAddr,ToSocketAddrs,TcpStream};
 use std::time::{Duration,Instant};
 use std::thread;
 
-use clap::{App,AppSettings,Arg};
-use console::style;
+use crate::clap::{App,AppSettings,Arg};
+use crate::console::style;
+
+mod aggregates;
 
 fn main() {
     let matches = App::new("tcping")
@@ -73,16 +78,25 @@ fn main() {
     // Print stats (psping format):
     println!();
     let received_percent = latencies.len() as i32 * 100 / count;
-    let formatted_percent = if received_percent == 100 {
-        format!("{}{}", style(&received_percent).green(), style("%").green())
-    }
-    else {
-        format!("{}{}", style(&received_percent).red(), style("%").red())
+
+    let formatted_percent = {
+        if received_percent == 100 {
+            format!("{}{}", style(&received_percent).green(), style("%").green())
+        }
+        else {
+            format!("{}{}", style(&received_percent).red(), style("%").red())
+        }
     };
+
     println!("  Sent = {:.2}, Received = {:.2} ({})", count, latencies.len(), formatted_percent);
 
     if !latencies.is_empty() {
-        println!("  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms", min(&latencies), max(&latencies), avg(&latencies));
+        println!(
+            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
+            aggregates::min(&latencies),
+            aggregates::max(&latencies),
+            aggregates::avg(&latencies)
+        );
     }
 }
 
@@ -103,36 +117,6 @@ fn ping(addr: &SocketAddr, timeout_secs: i32) -> Result<f64, std::io::Error> {
         println!("{:.2} ms", style(diff_ms).green());
         Ok(diff_ms)
     }
-}
-
-fn min(numbers: &[f64]) -> &f64 {
-    let mut i = numbers.iter();
-    let mut m = i.next().unwrap();
-
-    while let Some(n) = i.next() {
-        if n < m {
-            m = n;
-        }
-    }
-
-    m
-}
-
-fn max(numbers: &[f64]) -> &f64 {
-    let mut i = numbers.iter();
-    let mut m = i.next().unwrap();
-
-    while let Some(n) = i.next() {
-        if n > m {
-            m = n;
-        }
-    }
-
-    m
-}
-
-fn avg(numbers: &[f64]) -> f64 {
-    numbers.iter().sum::<f64>() as f64 / numbers.len() as f64
 }
 
 fn fmt_err(err: &Error) -> String {
