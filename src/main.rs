@@ -5,15 +5,16 @@ use std::error::Error;
 use std::io;
 use std::io::prelude::*;
 use std::net::{SocketAddr,ToSocketAddrs,TcpStream};
+use std::num::ParseIntError;
 use std::time::{Duration,Instant};
 use std::thread;
 
-use crate::clap::{App,AppSettings,Arg};
+use crate::clap::{App,AppSettings,Arg,ArgMatches};
 use crate::console::style;
 
 mod aggregates;
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let matches = App::new("tcping")
         .version("0.3")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
@@ -25,21 +26,9 @@ fn main() {
         .setting(AppSettings::DisableVersion)
         .get_matches();
 
-    let count = matches
-        .value_of("count")
-        .map(|c| c.parse::<u64>().expect("Invalid count."))
-        .unwrap_or(4);
-
-    let interval_ms = matches
-        .value_of("interval")
-        .map(|c| c.parse::<u64>().expect("Invalid interval."))
-        .unwrap_or(1_000);
-
-    let timeout_secs = matches
-        .value_of("timeout")
-        .map(|c| c.parse::<u64>().expect("Invalid timeout."))
-        .unwrap_or(4);
-
+    let count = u64_arg(&matches, "count", 4)?;
+    let interval_ms = u64_arg(&matches, "interval", 1_000)?;
+    let timeout_secs = u64_arg(&matches, "timeout", 4)?;
     let target = matches.value_of("target").unwrap();
     let socket_addr_result = target.to_socket_addrs();
 
@@ -54,7 +43,7 @@ fn main() {
         };
 
         println!("{}", error_text);
-        return;
+        return Err(Box::new(err));
     }
 
     let addr = socket_addr_result.unwrap().next().unwrap();
@@ -70,9 +59,28 @@ fn main() {
         results.push(print_timed_ping(&addr, timeout_secs, false).ok());
     }
 
-    // Print stats (psping format):
-    println!();
-    print_stats(results);
+    if !results.is_empty() {
+        // Print stats (psping format):
+        println!();
+        print_stats(results);
+    }
+    
+    Ok(())
+}
+
+fn u64_arg(matches: &ArgMatches, name: &str, default_value: u64) -> Result<u64, ParseIntError> {
+    match matches.value_of(name) {
+        None => Ok(default_value),
+        Some(value_str) => {
+            match value_str.parse::<u64>() {
+                Ok(value) => Ok(value),
+                Err(err) => {
+                    println!("Invalid {}.", name);
+                    Err(err)
+                }
+            }
+        }
+    }
 }
 
 fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, std::io::Error> {
@@ -126,7 +134,7 @@ fn print_stats(results: Vec<Option<f64>>) {
 
     println!("  Sent = {:.2}, Received = {:.2} ({})", results.len(), successes.len(), formatted_percent);
 
-    if !results.is_empty() {
+    if !successes.is_empty() {
         println!(
             "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
             aggregates::min(&successes),
