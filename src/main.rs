@@ -68,19 +68,16 @@ fn main() {
     let addr = socket_addr_result.unwrap().next().unwrap();
 
     // Warmup.
-    print!("> {} (warmup): ", addr);
-    io::stdout().flush().unwrap();
-    ping(&addr, timeout_secs).unwrap_or_default();
+    timed_ping_disp(&addr, timeout_secs, true).ok();
 
     // Actual timed ping.
     let mut latencies = Vec::new();
 
     for _i in 0..count {
         thread::sleep(Duration::from_millis(500));
-        print!("> {}: ", addr);
 
-        if let Some(latency) = ping(&addr, timeout_secs).ok() {
-            latencies.push(latency);
+        if let Ok(latency_ms) = timed_ping_disp(&addr, timeout_secs, false) {
+            latencies.push(latency_ms);
         }
     }
 
@@ -109,23 +106,40 @@ fn main() {
     }
 }
 
-fn ping(addr: &SocketAddr, timeout_secs: i32) -> Result<f64, std::io::Error> {
-    let start = Instant::now();
-    let res = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs as u64));
-
-    if let Err(err) = res {
-        println!("{}", style(&err).red());
-        Err(err)
+fn timed_ping_disp(addr: &SocketAddr, timeout_secs: i32, warmup: bool) -> Result<f64, std::io::Error> {
+    if warmup {
+        print!("> {} (warmup): ", addr);
+        io::stdout().flush().unwrap();
     }
     else {
-        let finish = Instant::now();
-        let diff = finish - start;
-        let diff_ns = diff.subsec_nanos();
-        let diff_ms = diff_ns as f64 / 1000000 as f64 + diff.as_secs() as f64 * 1000 as f64;
-
-        println!("{:.2} ms", style(diff_ms).green());
-        Ok(diff_ms)
+        print!("> {}: ", addr);
     }
+
+    match timed_ping(&addr, timeout_secs) {
+        Err(err) => {
+            println!("{}", style(&err).red());
+            Err(err)
+        }
+        Ok(latency_ms) => {
+            println!("{:.2} ms", style(latency_ms).green());
+            Ok(latency_ms)
+        }
+    }
+}
+
+fn timed_ping(addr: &SocketAddr, timeout_secs: i32) -> Result<f64, std::io::Error> {
+    let start = Instant::now();
+
+    if let Err(err) = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs as u64)) {
+        return Err(err);
+    }
+
+    let finish = Instant::now();
+    let diff = finish - start;
+    let diff_ns = diff.subsec_nanos();
+    let diff_ms = diff_ns as f64 / 1000000 as f64 + diff.as_secs() as f64 * 1000 as f64;
+
+    Ok(diff_ms)
 }
 
 fn fmt_err(err: &Error) -> String {
