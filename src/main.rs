@@ -25,41 +25,20 @@ fn main() {
         .setting(AppSettings::DisableVersion)
         .get_matches();
 
-    let count_match = matches.value_of("count");
-    let mut count = 4; // Default.
+    let count = matches
+        .value_of("count")
+        .map(|c| c.parse::<u64>().expect("Invalid count."))
+        .unwrap_or(4);
 
-    if let Some(count_str) = count_match {
-        count = count_str.parse::<i32>().expect("Not a valid integer.");
+    let interval_ms = matches
+        .value_of("interval")
+        .map(|c| c.parse::<u64>().expect("Invalid interval."))
+        .unwrap_or(1_000);
 
-        if count < 0 {
-            println!("Invalid count.");
-            return;
-        }
-    }
-
-    let interval_match = matches.value_of("interval");
-    let mut interval_ms = 1000; // Default.Result
-
-    if let Some(interval_str) = interval_match {
-        interval_ms = interval_str.parse::<i32>().expect("Not a valid integer.");
-
-        if interval_ms < 0 {
-            println!("Invalid interval.");
-            return;
-        }
-    }
-
-    let timeout_match = matches.value_of("timeout");
-    let mut timeout_secs = 4; // Default.
-
-    if let Some(timeout_str) = timeout_match {
-        timeout_secs = timeout_str.parse::<i32>().expect("Not a valid integer.");
-
-        if timeout_secs < 0 {
-            println!("Invalid timeout.");
-            return;
-        }
-    }
+    let timeout_secs = matches
+        .value_of("timeout")
+        .map(|c| c.parse::<u64>().expect("Invalid timeout."))
+        .unwrap_or(4);
 
     let target = matches.value_of("target").unwrap();
     let socket_addr_result = target.to_socket_addrs();
@@ -81,45 +60,22 @@ fn main() {
     let addr = socket_addr_result.unwrap().next().unwrap();
 
     // Warmup.
-    timed_ping_disp(&addr, timeout_secs, true).ok();
+    print_timed_ping(&addr, timeout_secs, true).ok();
 
     // Actual timed ping.
-    let mut latencies = Vec::new();
+    let mut results = Vec::new();
 
     for _i in 0..count {
-        thread::sleep(Duration::from_millis(interval_ms as u64));
-
-        if let Ok(latency_ms) = timed_ping_disp(&addr, timeout_secs, false) {
-            latencies.push(latency_ms);
-        }
+        thread::sleep(Duration::from_millis(interval_ms));
+        results.push(print_timed_ping(&addr, timeout_secs, false).ok());
     }
 
     // Print stats (psping format):
     println!();
-    let received_percent = latencies.len() as i32 * 100 / count;
-
-    let formatted_percent = {
-        if received_percent == 100 {
-            format!("{}{}", style(&received_percent).green(), style("%").green())
-        }
-        else {
-            format!("{}{}", style(&received_percent).red(), style("%").red())
-        }
-    };
-
-    println!("  Sent = {:.2}, Received = {:.2} ({})", count, latencies.len(), formatted_percent);
-
-    if !latencies.is_empty() {
-        println!(
-            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
-            aggregates::min(&latencies),
-            aggregates::max(&latencies),
-            aggregates::avg(&latencies)
-        );
-    }
+    print_stats(results);
 }
 
-fn timed_ping_disp(addr: &SocketAddr, timeout_secs: i32, warmup: bool) -> Result<f64, std::io::Error> {
+fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, std::io::Error> {
     if warmup {
         print!("> {} (warmup): ", addr);
         io::stdout().flush().unwrap();
@@ -140,19 +96,44 @@ fn timed_ping_disp(addr: &SocketAddr, timeout_secs: i32, warmup: bool) -> Result
     }
 }
 
-fn timed_ping(addr: &SocketAddr, timeout_secs: i32) -> Result<f64, std::io::Error> {
+fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, std::io::Error> {
     let start = Instant::now();
 
-    if let Err(err) = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs as u64)) {
+    if let Err(err) = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
         return Err(err);
     }
 
     let finish = Instant::now();
     let diff = finish - start;
     let diff_ns = diff.subsec_nanos();
-    let diff_ms = diff_ns as f64 / 1000000 as f64 + diff.as_secs() as f64 * 1000 as f64;
+    let diff_ms = diff_ns as f64 / 1_000_000 as f64 + diff.as_secs() as f64 * 1_000 as f64;
 
     Ok(diff_ms)
+}
+
+fn print_stats(results: Vec<Option<f64>>) {
+    let successes: Vec<f64> = results.iter().filter(|l| l.is_some()).map(|l| l.unwrap()).collect();
+    let success_percent = successes.len() * 100 / results.len();
+
+    let formatted_percent = {
+        if success_percent == 100 {
+            format!("{}{}", style(&success_percent).green(), style("%").green())
+        }
+        else {
+            format!("{}{}", style(&success_percent).red(), style("%").red())
+        }
+    };
+
+    println!("  Sent = {:.2}, Received = {:.2} ({})", results.len(), successes.len(), formatted_percent);
+
+    if !results.is_empty() {
+        println!(
+            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
+            aggregates::min(&successes),
+            aggregates::max(&successes),
+            aggregates::avg(&successes)
+        );
+    }
 }
 
 fn fmt_err(err: &Error) -> String {
