@@ -15,7 +15,7 @@ mod aggregates;
 
 fn main() {
     let matches = App::new("tcping")
-        .version("0.2")
+        .version("0.3")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
         .arg(Arg::from_usage("<target> 'TCP ping target in {host:port} format (i.e. google.com:80)'"))
         .arg(Arg::from_usage("-c, --count=[count] 'Number of requests (not counting warmup) to dispatch'"))
