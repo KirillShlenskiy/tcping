@@ -19,6 +19,7 @@ fn main() {
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
         .arg(Arg::from_usage("<target> 'TCP ping target in {host:port} format (i.e. google.com:80)'"))
         .arg(Arg::from_usage("-c, --count=[count] 'Number of requests (not counting warmup) to dispatch'"))
+        .arg(Arg::from_usage("-i, --interval=[interval] 'Interval (in milliseconds) between requests; the default is 1000'"))
         .arg(Arg::from_usage("-t, --timeout=[timeout] 'Connection timeout in seconds; the default is 4'"))
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::DisableVersion)
@@ -32,6 +33,18 @@ fn main() {
 
         if count < 0 {
             println!("Invalid count.");
+            return;
+        }
+    }
+
+    let interval_match = matches.value_of("interval");
+    let mut interval_ms = 1000; // Default.Result
+
+    if let Some(interval_str) = interval_match {
+        interval_ms = interval_str.parse::<i32>().expect("Not a valid integer.");
+
+        if interval_ms < 0 {
+            println!("Invalid interval.");
             return;
         }
     }
@@ -74,7 +87,7 @@ fn main() {
     let mut latencies = Vec::new();
 
     for _i in 0..count {
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(Duration::from_millis(interval_ms as u64));
 
         if let Ok(latency_ms) = timed_ping_disp(&addr, timeout_secs, false) {
             latencies.push(latency_ms);
