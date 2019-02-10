@@ -3,16 +3,20 @@ name = "tcping"
 version = "0.4.0"
 authors = ["Kirill Shlenskiy"]
 edition = "2018"
+build = "src/build.rs"
 
 [dependencies]
 clap = "2.32.0"
 console = "0.7.5"
 
+[target.'cfg(target_os="windows")'.build-dependencies]
+winres = "0.1.8"
+
 [profile.release]
 lto = true
 panic = 'abort'
 
-[[bin]]
-name = "tcping"
-test = false
-doc = false
+[package.metadata.winres]
+FileDescription = "TCP ping utility"
+LegalCopyright = "Copyright (C) 2019 Kirill Shlenskiy"
+ProductVersion = "0.4.0"
