@@ -14,7 +14,7 @@ use crate::console::style;
 
 mod aggregates;
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), Box<Error>> {
     let matches = App::new("tcping")
         .version("0.4")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
@@ -62,7 +62,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     if !results.is_empty() {
         // Print stats (psping format):
         println!();
-        print_stats(results);
+        print_stats(&results);
     }
     
     Ok(())
@@ -119,7 +119,7 @@ fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, std::io::Erro
     Ok(diff_ms)
 }
 
-fn print_stats(results: Vec<Option<f64>>) {
+fn print_stats(results: &[Option<f64>]) {
     let successes: Vec<f64> = results.iter().filter(|l| l.is_some()).map(|l| l.unwrap()).collect();
     let success_percent = successes.len() * 100 / results.len();
 
