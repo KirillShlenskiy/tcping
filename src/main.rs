@@ -92,11 +92,11 @@ fn u64_arg(matches: &ArgMatches, name: &str, default_value: u64) -> Result<u64, 
 
 fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, std::io::Error> {
     if warmup {
-        print!("Reply from {} (warmup): ", addr);
+        print!("> {} (warmup): ", addr);
         io::stdout().flush().unwrap();
     }
     else {
-        print!("Reply from {}: ", addr);
+        print!("> {}: ", addr);
     }
 
     match timed_ping(&addr, timeout_secs) {
