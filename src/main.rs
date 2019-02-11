@@ -3,7 +3,7 @@ extern crate console;
 
 use std::error::Error;
 use std::io;
-use std::io::prelude::*;
+use std::io::prelude::Write;
 use std::net::{SocketAddr,ToSocketAddrs,TcpStream};
 use std::num::ParseIntError;
 use std::time::{Duration,Instant};
@@ -14,21 +14,24 @@ use crate::console::style;
 
 mod aggregates;
 
+const TIMEOUT_SECS: u64 = 4;
+
 fn main() -> Result<(), Box<Error>> {
     let matches = App::new("tcping")
         .version("0.4.1")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
-        .arg(Arg::from_usage("<target> 'TCP ping target in {host:port} format (i.e. google.com:80)'"))
-        .arg(Arg::from_usage("-c, --count=[count] 'Number of requests (not counting warmup) to dispatch'"))
-        .arg(Arg::from_usage("-i, --interval=[interval] 'Interval (in milliseconds) between requests; the default is 1000'"))
-        .arg(Arg::from_usage("-t, --timeout=[timeout] 'Connection timeout in seconds; the default is 4'"))
+        .arg(Arg::from_usage("<target> 'TCP ping target in \"host:port\" format (i.e. google.com:80)'"))
+        .arg(Arg::from_usage("-t 'Ping until stopped with Ctrl+C'"))
+        .arg(Arg::from_usage("-n=[count] 'Number of TCP requests (not counting warmup) to send'"))
+        .arg(Arg::from_usage("-i=[interval] 'Interval (in milliseconds) between requests; the default is 1000'"))
         .setting(AppSettings::ArgRequiredElseHelp)
         .setting(AppSettings::DisableVersion)
+        .setting(AppSettings::UnifiedHelpMessage)
         .get_matches();
 
-    let count = u64_arg(&matches, "count", 4)?;
-    let interval_ms = u64_arg(&matches, "interval", 1_000)?;
-    let timeout_secs = u64_arg(&matches, "timeout", 4)?;
+    let continuous = matches.is_present("t");
+    let count = u64_arg(&matches, "n", 4)?;
+    let interval_ms = u64_arg(&matches, "i", 1_000)?;
     let target = matches.value_of("target").unwrap();
     let socket_addr_result = target.to_socket_addrs();
 
@@ -49,14 +52,18 @@ fn main() -> Result<(), Box<Error>> {
     let addr = socket_addr_result.unwrap().next().unwrap();
 
     // Warmup.
-    print_timed_ping(&addr, timeout_secs, true).ok();
+    print_timed_ping(&addr, TIMEOUT_SECS, true).ok();
 
     // Actual timed ping.
     let mut results = Vec::new();
 
-    for _i in 0..count {
+    loop {
+        if !continuous && results.len() as u64 >= count {
+            break;
+        }
+
         thread::sleep(Duration::from_millis(interval_ms));
-        results.push(print_timed_ping(&addr, timeout_secs, false).ok());
+        results.push(print_timed_ping(&addr, TIMEOUT_SECS, false).ok());
     }
 
     if !results.is_empty() {
