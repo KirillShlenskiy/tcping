@@ -85,16 +85,16 @@ fn u64_arg(matches: &ArgMatches, name: &str, default_value: u64) -> Result<u64, 
 
 fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, std::io::Error> {
     if warmup {
-        print!("> {} (warmup): ", addr);
+        print!("Reply from {} (warmup): ", addr);
         io::stdout().flush().unwrap();
     }
     else {
-        print!("> {}: ", addr);
+        print!("Reply from {}: ", addr);
     }
 
     match timed_ping(&addr, timeout_secs) {
         Err(err) => {
-            println!("{}", style(&err).red());
+            println!("{}", &err);
             Err(err)
         }
         Ok(latency_ms) => {
@@ -124,11 +124,10 @@ fn print_stats(results: &[Option<f64>]) {
     let success_percent = successes.len() * 100 / results.len();
 
     let formatted_percent = {
-        if success_percent == 100 {
-            format!("{}{}", style(&success_percent).green(), style("%").green())
-        }
-        else {
-            format!("{}{}", style(&success_percent).red(), style("%").red())
+        match success_percent {
+            100 => format!("{}{}", style(&success_percent).green(), style("%").green()),
+            0 => format!("{}{}", style(&success_percent).red(), style("%").red()),
+            _ => format!("{}{}", style(&success_percent).yellow(), style("%").yellow())
         }
     };
 
