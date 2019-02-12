@@ -18,7 +18,7 @@ const TIMEOUT_SECS: u64 = 4;
 
 fn main() -> Result<(), Box<Error>> {
     let matches = App::new("tcping")
-        .version("0.4.1")
+        .version("0.5.0")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
         .arg(Arg::from_usage("<target> 'TCP ping target in \"host:port\" format (i.e. google.com:80)'"))
         .arg(Arg::from_usage("-t 'Ping until stopped with Ctrl+C'"))
