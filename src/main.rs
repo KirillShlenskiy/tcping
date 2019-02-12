@@ -4,12 +4,12 @@ extern crate console;
 use std::error::Error;
 use std::io;
 use std::io::prelude::Write;
-use std::net::{SocketAddr,ToSocketAddrs,TcpStream};
+use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
 use std::num::ParseIntError;
-use std::time::{Duration,Instant};
+use std::time::{Duration, Instant};
 use std::thread;
 
-use crate::clap::{App,AppSettings,Arg,ArgMatches};
+use crate::clap::{App, AppSettings, Arg, ArgMatches};
 use crate::console::style;
 
 mod aggregates;
@@ -101,7 +101,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Resul
 
     match timed_ping(&addr, timeout_secs) {
         Err(err) => {
-            println!("{}", &err);
+            println!("{}", style(&err).cyan());
             Err(err)
         }
         Ok(latency_ms) => {
