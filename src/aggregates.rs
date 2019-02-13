@@ -1,4 +1,6 @@
-pub fn min(numbers: &[f64]) -> &f64 {
+use std::cmp::PartialOrd;
+
+pub fn min<T : PartialOrd>(numbers: &[T]) -> &T {
     let mut i = numbers.iter();
     let mut m = i.next().unwrap();
 
@@ -9,7 +11,7 @@ pub fn min(numbers: &[f64]) -> &f64 {
     m
 }
 
-pub fn max(numbers: &[f64]) -> &f64 {
+pub fn max<T : PartialOrd>(numbers: &[T]) -> &T {
     let mut i = numbers.iter();
     let mut m = i.next().unwrap();
 
