@@ -2,7 +2,7 @@ extern crate clap;
 extern crate console;
 
 use std::error::Error;
-use std::io::{self, Write};
+use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
 use std::str::FromStr;
 use std::thread;
@@ -32,23 +32,23 @@ fn main() -> Result<(), Box<Error>> {
     let count: u64 = parse_arg(&matches, "n", 4)?;
     let interval_ms: u64 = parse_arg(&matches, "i", 1_000)?;
     let target = matches.value_of("target").unwrap();
-    let socket_addr_result = target.to_socket_addrs();
 
-    if let Err(err) = socket_addr_result {
-        let error_text = {
-            if format!("{}", err) == "invalid socket address" {
-                String::from("Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').")
-            }
-            else {
-                fmt_err(&err)
-            }
-        };
+    let addr = match target.to_socket_addrs() {
+        Ok(mut addr_list) => addr_list.next().unwrap(),
+        Err(err) => {
+            let error_text = {
+                if format!("{}", err) == "invalid socket address" {
+                    String::from("Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').")
+                }
+                else {
+                    fmt_err(&err)
+                }
+            };
 
-        println!("{}", error_text);
-        return Err(Box::new(err));
-    }
-
-    let addr = socket_addr_result.unwrap().next().unwrap();
+            println!("{}", error_text);
+            return Err(Box::new(err));
+        }
+    };
 
     // Warmup.
     print_timed_ping(&addr, TIMEOUT_SECS, true).ok();
@@ -89,7 +89,7 @@ fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) ->
     }
 }
 
-fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, std::io::Error> {
+fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, IOError> {
     if warmup {
         print!("> {} (warmup): ", addr);
         io::stdout().flush().unwrap();
