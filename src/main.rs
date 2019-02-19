@@ -2,12 +2,11 @@ extern crate clap;
 extern crate console;
 
 use std::error::Error;
-use std::io;
-use std::io::prelude::Write;
+use std::io::{self, Write};
 use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
-use std::num::ParseIntError;
-use std::time::{Duration, Instant};
+use std::str::FromStr;
 use std::thread;
+use std::time::{Duration, Instant};
 
 use crate::clap::{App, AppSettings, Arg, ArgMatches};
 use crate::console::style;
@@ -30,8 +29,8 @@ fn main() -> Result<(), Box<Error>> {
         .get_matches();
 
     let continuous = matches.is_present("t");
-    let count = u64_arg(&matches, "n", 4)?;
-    let interval_ms = u64_arg(&matches, "i", 1_000)?;
+    let count: u64 = parse_arg(&matches, "n", 4)?;
+    let interval_ms: u64 = parse_arg(&matches, "i", 1_000)?;
     let target = matches.value_of("target").unwrap();
     let socket_addr_result = target.to_socket_addrs();
 
@@ -75,11 +74,11 @@ fn main() -> Result<(), Box<Error>> {
     Ok(())
 }
 
-fn u64_arg(matches: &ArgMatches, name: &str, default_value: u64) -> Result<u64, ParseIntError> {
+fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) -> Result<T, T::Err> {
     match matches.value_of(name) {
         None => Ok(default_value),
         Some(value_str) => {
-            match value_str.parse::<u64>() {
+            match value_str.parse() {
                 Ok(value) => Ok(value),
                 Err(err) => {
                     println!("Invalid {}.", name);
@@ -171,7 +170,7 @@ fn fmt_err(err: &Error) -> String {
 
     // Ensure there is a full stop at the end.
     if let Some(last_char) = desc.last() {
-        if last_char.to_owned() != '.' {
+        if last_char != &'.' {
             desc.push('.');
         }
     }
