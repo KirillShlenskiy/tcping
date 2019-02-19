@@ -92,7 +92,7 @@ fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) ->
 fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, IOError> {
     if warmup {
         print!("> {} (warmup): ", addr);
-        io::stdout().flush().unwrap();
+        io::stdout().flush()?;
     }
     else {
         print!("> {}: ", addr);
@@ -126,7 +126,10 @@ fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, std::io::Erro
 }
 
 fn print_stats(results: &[Option<f64>]) {
-    let successes: Vec<f64> = results.iter().filter(|l| l.is_some()).map(|l| l.unwrap()).collect();
+    let successes: Vec<f64> = results.iter()
+        .filter_map(|r| r.map(|s| s))
+        .collect();
+
     let success_percent = successes.len() * 100 / results.len();
 
     let formatted_percent = {
