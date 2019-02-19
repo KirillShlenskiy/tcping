@@ -1,4 +1,5 @@
 use std::cmp::PartialOrd;
+use std::iter::Sum;
 
 pub fn min<T : PartialOrd>(numbers: &[T]) -> &T {
     let mut i = numbers.iter();
@@ -22,6 +23,7 @@ pub fn max<T : PartialOrd>(numbers: &[T]) -> &T {
     m
 }
 
-pub fn avg(numbers: &[f64]) -> f64 {
-    numbers.iter().sum::<f64>() as f64 / numbers.len() as f64
+pub fn avg<T>(numbers: &[T]) -> f64 where T : Copy + Sum, f64 : From<T> {
+    let sum: T = numbers.iter().map(|n| n.to_owned()).sum();
+    f64::from(sum) / numbers.len() as f64
 }
