@@ -56,11 +56,7 @@ fn main() -> Result<(), Box<Error>> {
     // Actual timed ping.
     let mut results = Vec::new();
 
-    loop {
-        if !continuous && results.len() as u64 >= count {
-            break;
-        }
-
+    while continuous || (results.len() as u64) < count {
         thread::sleep(Duration::from_millis(interval_ms));
         results.push(print_timed_ping(&addr, TIMEOUT_SECS, false).ok());
     }
