@@ -116,14 +116,14 @@ fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, std::io::Erro
     let finish = Instant::now();
     let diff = finish - start;
     let diff_ns = diff.subsec_nanos();
-    let diff_ms = diff_ns as f64 / 1_000_000 as f64 + diff.as_secs() as f64 * 1_000 as f64;
+    let diff_ms = diff_ns as f64 / 1_000_000_f64 + diff.as_secs() as f64 * 1_000_f64;
 
     Ok(diff_ms)
 }
 
 fn print_stats(results: &[Option<f64>]) {
     let successes: Vec<f64> = results.iter()
-        .filter_map(|r| r.map(|s| s))
+        .filter_map(|r| r.to_owned())
         .collect();
 
     let success_percent = successes.len() * 100 / results.len();
