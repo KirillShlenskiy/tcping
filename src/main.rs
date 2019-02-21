@@ -91,7 +91,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
     if warmup {
         if time {
             let now = Local::now().format("%H:%M:%S");
-            print!("> [{}] {} (warmup): ", &now, addr);
+            print!("[{}] {} (warmup): ", &now, addr);
         }
         else {
             print!("> {} (warmup): ", addr);
@@ -101,7 +101,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
     else {
         if time {
             let now = Local::now().format("%H:%M:%S");
-            print!("> [{}] {}: ", &now, addr);
+            print!("[{}] {}: ", &now, addr);
         }
         else {
             print!("> {}: ", addr);
