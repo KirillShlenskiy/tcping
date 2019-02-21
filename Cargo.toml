@@ -6,6 +6,7 @@ edition = "2018"
 build = "src/build.rs"
 
 [dependencies]
+chrono = "0.4.6"
 clap = "2.32.0"
 console = "0.7.5"
 

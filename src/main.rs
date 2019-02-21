@@ -1,3 +1,4 @@
+extern crate chrono;
 extern crate clap;
 extern crate console;
 
@@ -8,6 +9,7 @@ use std::str::FromStr;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use crate::chrono::Local;
 use crate::clap::{App, AppSettings, Arg, ArgMatches};
 use crate::console::{style};
 
@@ -51,14 +53,14 @@ fn main() -> Result<(), Box<Error>> {
     };
 
     // Warmup.
-    print_timed_ping(&addr, TIMEOUT_SECS, true).ok();
+    print_timed_ping(&addr, TIMEOUT_SECS, true, continuous).ok();
 
     // Actual timed ping.
     let mut results = Vec::new();
 
     while continuous || (results.len() as u64) < count {
         thread::sleep(Duration::from_millis(interval_ms));
-        results.push(print_timed_ping(&addr, TIMEOUT_SECS, false).ok());
+        results.push(print_timed_ping(&addr, TIMEOUT_SECS, false, continuous).ok());
     }
 
     if !results.is_empty() {
@@ -85,13 +87,25 @@ fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) ->
     }
 }
 
-fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Result<f64, IOError> {
+fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bool) -> Result<f64, IOError> {
     if warmup {
-        print!("> {} (warmup): ", addr);
+        if time {
+            let now = Local::now().format("%H:%M:%S");
+            print!("> [{}] {} (warmup): ", &now, addr);
+        }
+        else {
+            print!("> {} (warmup): ", addr);
+        }
         io::stdout().flush()?;
     }
     else {
-        print!("> {}: ", addr);
+        if time {
+            let now = Local::now().format("%H:%M:%S");
+            print!("> [{}] {}: ", &now, addr);
+        }
+        else {
+            print!("> {}: ", addr);
+        }
     }
 
     match timed_ping(&addr, timeout_secs) {
