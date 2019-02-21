@@ -9,7 +9,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::clap::{App, AppSettings, Arg, ArgMatches};
-use crate::console::style;
+use crate::console::{style};
 
 mod aggregates;
 
@@ -100,7 +100,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool) -> Resul
             Err(err)
         }
         Ok(latency_ms) => {
-            println!("{:.2} ms", style(latency_ms).green());
+            println!("{:.2} ms", style(latency_ms).green().bold());
             Ok(latency_ms)
         }
     }
@@ -130,8 +130,8 @@ fn print_stats(results: &[Option<f64>]) {
 
     let formatted_percent = {
         match success_percent {
-            100 => format!("{}{}", style(&success_percent).green(), style("%").green()),
-            0 => format!("{}{}", style(&success_percent).red(), style("%").red()),
+            100 => format!("{}{}", style(&success_percent).green().bold(), style("%").green().bold()),
+            0 => format!("{}{}", style(&success_percent).red().bold(), style("%").red().bold()),
             _ => format!("{}{}", style(&success_percent).yellow(), style("%").yellow())
         }
     };
