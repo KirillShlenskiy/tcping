@@ -17,7 +17,16 @@ mod aggregates;
 
 const TIMEOUT_SECS: u64 = 4;
 
-fn main() -> Result<(), Box<Error>> {
+fn main() {
+    let res = main_impl();
+
+    if let Err(err) = res {
+        println!("{} {}", style("Error:").red().bold(), err);
+        std::process::exit(1);
+    }
+}
+
+fn main_impl() -> Result<(), Box<Error>> {
     let matches = App::new("tcping")
         .version("0.6.0")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
