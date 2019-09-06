@@ -26,7 +26,7 @@ fn main() {
     }
 }
 
-fn main_impl() -> Result<(), Box<Error>> {
+fn main_impl() -> Result<(), Box<dyn Error>> {
     let matches = App::new("tcping")
         .version("0.6.0")
         .about("TCP ping utility by Kirill Shlenskiy (2019)")
@@ -171,7 +171,7 @@ fn print_stats(results: &[Option<f64>]) {
     }
 }
 
-fn fmt_err(err: &Error) -> String {
+fn fmt_err(err: &dyn Error) -> String {
     let mut desc = Vec::new();
     {
         let desc_orig = format!("{}", err);
