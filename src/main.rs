@@ -28,7 +28,7 @@ fn main() {
 
 fn main_impl() -> Result<(), Box<dyn Error>> {
     let matches = App::new("tcping")
-        .version("0.7.0")
+        .version("0.7.1")
         .about("TCP ping utility by Kirill Shlenskiy (2020)")
         .arg(Arg::from_usage("<target> 'TCP ping target in \"host:port\" format (i.e. google.com:80)'"))
         .arg(Arg::from_usage("-t 'Ping until stopped with Ctrl+C'"))
