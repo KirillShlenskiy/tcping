@@ -145,7 +145,7 @@ fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, std::io::Erro
 
 fn print_stats(results: &[Option<f64>]) {
     let successes: Vec<f64> = results.iter()
-        .filter_map(|r| r.to_owned())
+        .filter_map(|&r| r)
         .collect();
 
     let success_percent = successes.len() * 100 / results.len();
@@ -206,5 +206,5 @@ fn fmt_err(err: &dyn Error) -> String {
     }
 
     // Collect Vec<char> -> String.
-    desc.into_iter().collect()
+    desc.iter().collect()
 }
