@@ -161,12 +161,21 @@ fn print_stats(results: &[Option<f64>]) {
     println!("  Sent = {:.2}, Received = {:.2} ({})", results.len(), successes.len(), formatted_percent);
 
     if !successes.is_empty() {
-        println!(
-            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
-            successes.iter().min_by(|x, y| x.partial_cmp(y).unwrap()).unwrap(),
-            successes.iter().max_by(|x, y| x.partial_cmp(y).unwrap()).unwrap(),
-            successes.iter().sum::<f64>() / successes.len() as f64
-        );
+        let min = successes
+            .iter()
+            .min_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap();
+
+        let max = successes
+            .iter()
+            .max_by(|x, y| x.partial_cmp(y).unwrap())
+            .unwrap();
+
+        let avg = successes
+            .iter()
+            .sum::<f64>() / successes.len() as f64;
+
+        println!("  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms", min, max, avg);
     }
 }
 
