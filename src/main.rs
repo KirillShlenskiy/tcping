@@ -163,12 +163,12 @@ fn print_stats(results: &[Option<f64>]) {
     if !successes.is_empty() {
         let min = successes
             .iter()
-            .min_by(|x, y| x.partial_cmp(y).unwrap())
+            .min_by(|&x, &y| x.partial_cmp(y).unwrap())
             .unwrap();
 
         let max = successes
             .iter()
-            .max_by(|x, y| x.partial_cmp(y).unwrap())
+            .max_by(|&x, &y| x.partial_cmp(y).unwrap())
             .unwrap();
 
         let avg = successes
