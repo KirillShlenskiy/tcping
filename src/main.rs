@@ -2,6 +2,7 @@ extern crate chrono;
 extern crate clap;
 extern crate console;
 
+use std::cmp::PartialOrd;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
@@ -12,8 +13,6 @@ use std::time::{Duration, Instant};
 use crate::chrono::Local;
 use crate::clap::{App, AppSettings, Arg, ArgMatches};
 use crate::console::{style};
-
-mod aggregates;
 
 const TIMEOUT_SECS: u64 = 4;
 
@@ -28,7 +27,7 @@ fn main() {
 
 fn main_impl() -> Result<(), Box<dyn Error>> {
     let matches = App::new("tcping")
-        .version("0.7.1")
+        .version("0.8.0")
         .about("TCP ping utility by Kirill Shlenskiy (2020)")
         .arg(Arg::from_usage("<target> 'TCP ping target in \"host:port\" format (i.e. google.com:80)'"))
         .arg(Arg::from_usage("-t 'Ping until stopped with Ctrl+C'"))
@@ -164,9 +163,9 @@ fn print_stats(results: &[Option<f64>]) {
     if !successes.is_empty() {
         println!(
             "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
-            aggregates::min(&successes),
-            aggregates::max(&successes),
-            aggregates::avg(&successes)
+            successes.iter().min_by(|x, y| x.partial_cmp(y).unwrap()).unwrap(),
+            successes.iter().max_by(|x, y| x.partial_cmp(y).unwrap()).unwrap(),
+            successes.iter().sum::<f64>() / successes.len() as f64
         );
     }
 }
