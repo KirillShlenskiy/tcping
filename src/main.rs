@@ -179,7 +179,8 @@ fn print_stats(results: &[Option<f64>]) {
     }
 }
 
-fn fmt_err(err: &dyn Error) -> String {
+fn fmt_err<T>(err: &T) -> String
+    where T : Error {
     let mut desc = Vec::new();
     {
         let desc_orig = format!("{}", err);
