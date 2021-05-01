@@ -128,7 +128,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
     }
 }
 
-fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, std::io::Error> {
+fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, IOError> {
     let start = Instant::now();
 
     if let Err(err) = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
