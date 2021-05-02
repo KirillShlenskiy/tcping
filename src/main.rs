@@ -61,14 +61,14 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
     };
 
     // Warmup.
-    print_timed_ping(&addr, TIMEOUT_SECS, true, continuous).ok();
+    print_timed_ping(&addr, TIMEOUT_SECS, true, continuous);
 
     // Actual timed ping.
     let mut results = Vec::new();
 
     while continuous || (results.len() as u64) < count {
         thread::sleep(Duration::from_millis(interval_ms));
-        results.push(print_timed_ping(&addr, TIMEOUT_SECS, false, continuous).ok());
+        results.push(print_timed_ping(&addr, TIMEOUT_SECS, false, continuous));
     }
 
     if !results.is_empty() {
@@ -95,7 +95,7 @@ fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) ->
     }
 }
 
-fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bool) -> Result<f64, IOError> {
+fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bool) -> Option<f64> {
     if warmup {
         if time {
             let now = Local::now().format("%H:%M:%S");
@@ -104,7 +104,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
         else {
             print!("> {} (warmup): ", addr);
         }
-        io::stdout().flush()?;
+        io::stdout().flush().unwrap();
     }
     else {
         if time {
@@ -119,11 +119,11 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
     match timed_ping(&addr, timeout_secs) {
         Err(err) => {
             println!("{}", style(&err).cyan());
-            Err(err)
-        }
+            None
+        },
         Ok(latency_ms) => {
             println!("{:.2} ms", style(latency_ms).green().bold());
-            Ok(latency_ms)
+            Some(latency_ms)
         }
     }
 }
@@ -161,26 +161,23 @@ fn print_stats(results: &[Option<f64>]) {
     println!("  Sent = {:.2}, Received = {:.2} ({})", results.len(), successes.len(), formatted_percent);
 
     if !successes.is_empty() {
-        let min = successes
-            .iter()
+        let min = successes.iter()
             .min_by(|&x, &y| x.partial_cmp(y).unwrap())
             .unwrap();
 
-        let max = successes
-            .iter()
+        let max = successes.iter()
             .max_by(|&x, &y| x.partial_cmp(y).unwrap())
             .unwrap();
 
-        let avg = successes
-            .iter()
+        let avg = successes.iter()
             .sum::<f64>() / successes.len() as f64;
 
         println!("  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms", min, max, avg);
     }
 }
 
-fn fmt_err<T>(err: &T) -> String
-    where T : Error {
+fn fmt_err(err: &impl Error) -> String
+{
     let mut desc = Vec::new();
     {
         let desc_orig = format!("{}", err);
