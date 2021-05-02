@@ -104,6 +104,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
         else {
             print!("> {} (warmup): ", addr);
         }
+        
         io::stdout().flush().unwrap();
     }
     else {
