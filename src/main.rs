@@ -47,7 +47,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
         Ok(mut addr_list) => addr_list.next().unwrap(),
         Err(err) => {
             let error_text = {
-                if format!("{}", err) == "invalid socket address" {
+                if err.to_string() == "invalid socket address" {
                     String::from("Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').")
                 }
                 else {
@@ -181,7 +181,7 @@ fn fmt_err(err: &impl Error) -> String
 {
     let mut desc = Vec::new();
     {
-        let desc_orig = format!("{}", err);
+        let desc_orig = err.to_string();
         let mut desc_chars = desc_orig.chars();
 
         while let Some(c) = desc_chars.next() {
