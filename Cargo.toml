@@ -1,6 +1,6 @@
 [package]
 name = "tcping"
-version = "0.9.3"
+version = "0.9.4"
 authors = ["Kirill Shlenskiy"]
 edition = "2018"
 build = "src/build.rs"
@@ -20,4 +20,4 @@ panic = 'abort'
 [package.metadata.winres]
 FileDescription = "TCP ping utility"
 LegalCopyright = "Copyright (C) 2022 Kirill Shlenskiy"
-ProductVersion = "0.9.3"
+ProductVersion = "0.9.4"
