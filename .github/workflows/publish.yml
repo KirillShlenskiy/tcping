@@ -2,8 +2,9 @@ name: Publish
 
 on:
   push:
-    tags: *
-    
+    tags:
+    - *
+
   workflow_dispatch:
 
 env:
