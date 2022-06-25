@@ -6,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  - linux-x64:
+  linux-x64:
     name: Linux x64
     runs-on: ubuntu-latest
     steps:
@@ -21,7 +21,7 @@ jobs:
         asset_name: tcping-linux-x64
         tag: ${{ github.ref }}
         overwrite: true
-  - windows-x64:
+  windows-x64:
     name: Windows x64
     runs-on: windows-latest
     steps:
