@@ -1,16 +1,23 @@
 name: CI
 
-on: [ push ]
+on: [ push, workflow_dispatch ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  linux-x64:
+    name: Linux x64
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cargo build --verbose
+      run: cargo build --release
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: target/release/tcping
+        asset_name: tcping-linux-x64
+        tag: ${{ github.ref }}
+        overwrite: true
