@@ -48,15 +48,12 @@ jobs:
       with:
         use-cross: true
         command: build
-        args: --target armv7-unknown-linux-gnueabihf
-    - name: Print dir
-      shell: bash
-      run: ls -lah target/armv7-unknown-linux-gnueabihf
-    # - name: Upload binaries to release
-    #   uses: svenstaro/upload-release-action@v2
-    #   with:
-    #     repo_token: ${{ secrets.GITHUB_TOKEN }}
-    #     file: target/armv7-unknown-linux-gnueabihf/release/tcping
-    #     asset_name: tcping-linux-armv7
-    #     tag: ${{ github.ref }}
-    #     overwrite: true
+        args: --release --target armv7-unknown-linux-gnueabihf
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: target/armv7-unknown-linux-gnueabihf/release/tcping
+        asset_name: tcping-linux-armv7
+        tag: ${{ github.ref }}
+        overwrite: true
