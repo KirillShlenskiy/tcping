@@ -40,7 +40,7 @@ jobs:
         overwrite: true
 
   armv7:
-    name ARM v7
+    name: ARM v7
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
