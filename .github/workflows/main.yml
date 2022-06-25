@@ -6,6 +6,23 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+
+  windows-x64:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --release
+    - name: Upload binaries to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: target/release/tcping.exe
+        asset_name: tcping-win-x64.exe
+        tag: ${{ github.ref }}
+        overwrite: true
+
   linux-x64:
     name: Linux x64
     runs-on: ubuntu-latest
@@ -21,18 +38,27 @@ jobs:
         asset_name: tcping-linux-x64
         tag: ${{ github.ref }}
         overwrite: true
-  windows-x64:
-    name: Windows x64
-    runs-on: windows-latest
+
+  armv7:
+    name ARM v7
+    runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --release
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        target: armv7-unknown-linux-gnueabihf
+        override: true
+    - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --target armv7-unknown-linux-gnueabihf
     - name: Upload binaries to release
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/release/tcping.exe
-        asset_name: tcping-win-x64.exe
+        file: target/armv7-unknown-linux-gnueabihf/release/tcping
+        asset_name: tcping-linux-armv7
         tag: ${{ github.ref }}
         overwrite: true
