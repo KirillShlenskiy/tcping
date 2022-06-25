@@ -44,11 +44,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    # - uses: actions-rs/toolchain@v1
-    #   with:
-    #     toolchain: stable
-    #     target: armv7-unknown-linux-gnueabihf
-    #     override: true
     - uses: actions-rs/cargo@v1
       with:
         use-cross: true
@@ -56,7 +51,7 @@ jobs:
         args: --target armv7-unknown-linux-gnueabihf
     - name: Print dir
       shell: bash
-      run: ls -lah target
+      run: ls -lah target/armv7-unknown-linux-gnueabihf
     # - name: Upload binaries to release
     #   uses: svenstaro/upload-release-action@v2
     #   with:
