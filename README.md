@@ -35,4 +35,4 @@ $ tcping myserver.myregion.cloudapp.azure.com:22 -t
 ...
 ```
 
-See `tcping --help` for additional command-line options and usage tips.
+See `tcping --help` for additional command line options and usage tips.
