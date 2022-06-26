@@ -3,7 +3,7 @@ name: Publish
 on:
   push:
     tags:
-    
+
   workflow_dispatch:
 
 env:
@@ -53,41 +53,41 @@ jobs:
           name: tcping-linux-armv7
           path: target/armv7-unknown-linux-gnueabihf/release/*
     
-    publish-release:
-      name: Create release
-      runs-on: ubuntu-latest
-      needs: [ build-windows-x64, build-linux-x64, build-linux-armv7 ]
-      steps:
+  publish-release:
+    name: Create release
+    runs-on: ubuntu-latest
+    needs: [ build-windows-x64, build-linux-x64, build-linux-armv7 ]
+    steps:
 
-        - name: Download win-x64 artifacts
-          uses: actions/download-artifact@v3
-          with:
-            name: tcping-win-x64
-            path: tcping-win-x64
+      - name: Download win-x64 artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: tcping-win-x64
+          path: tcping-win-x64
 
-        - name: Download linux-x64 artifacts
-          uses: actions/download-artifact@v3
-          with:
-            name: tcping-linux-x64
-            path: tcping-linux-x64
+      - name: Download linux-x64 artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: tcping-linux-x64
+          path: tcping-linux-x64
 
-        - name: Download linux-armv7 artifacts
-          uses: actions/download-artifact@v3
-          with:
-            name: tcping-linux-armv7
-            path: tcping-linux-armv7
+      - name: Download linux-armv7 artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: tcping-linux-armv7
+          path: tcping-linux-armv7
 
-        - name: Create and populate publish dir
-          run: |
-            mkdir publish
-            cp tcping-win-x64/tcping.exe publish/tcping-win-x64.exe
-            cp tcping-linux-x64/tcping publish/tcping-linux-x64
-            cp tcping-linux-armv7/tcping publish/tcping-linux-armv7
+      - name: Create and populate publish dir
+        run: |
+          mkdir publish
+          cp tcping-win-x64/tcping.exe publish/tcping-win-x64.exe
+          cp tcping-linux-x64/tcping publish/tcping-linux-x64
+          cp tcping-linux-armv7/tcping publish/tcping-linux-armv7
 
-        - name: Upload binaries to release
-          uses: svenstaro/upload-release-action@v2
-          with:
-            repo_token: ${{ secrets.GITHUB_TOKEN }}
-            file: publish/*
-            tag: ${{ github.ref }}
-            overwrite: true
+      - name: Upload binaries to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: publish/*
+          tag: ${{ github.ref }}
+          overwrite: true
