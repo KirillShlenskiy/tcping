@@ -1,10 +1,7 @@
 name: Publish
 
 on:
-  push:
-    tags:
-      - v*
-
+  push: [ tags: ]
   workflow_dispatch:
 
 env:
@@ -12,53 +9,83 @@ env:
 
 jobs:
 
-  windows-x64:
-    name: Windows x64
+  build-windows-x64:
+    name: Build Windows x64
     runs-on: windows-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --release
-    - name: Upload binaries to release
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/release/tcping.exe
-        asset_name: tcping-win-x64.exe
-        tag: ${{ github.ref }}
-        overwrite: true
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: tcping-win-x64
+          path: target/release/*
 
-  linux-x64:
-    name: Linux x64
+  build-linux-x64:
+    name: Build Linux x64
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --release
-    - name: Upload binaries to release
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/release/tcping
-        asset_name: tcping-linux-x64
-        tag: ${{ github.ref }}
-        overwrite: true
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --release
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: tcping-linux-x64
+          path: target/release/*
 
-  armv7:
-    name: ARM v7
+  build-linux-armv7:
+    name: Build ARM v7
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3
-    - uses: actions-rs/cargo@v1
-      with:
-        use-cross: true
-        command: build
-        args: --release --target armv7-unknown-linux-gnueabihf
-    - name: Upload binaries to release
-      uses: svenstaro/upload-release-action@v2
-      with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
-        file: target/armv7-unknown-linux-gnueabihf/release/tcping
-        asset_name: tcping-linux-armv7
-        tag: ${{ github.ref }}
-        overwrite: true
+      - uses: actions/checkout@v3
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --target armv7-unknown-linux-gnueabihf
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: tcping-linux-armv7
+          path: target/armv7-unknown-linux-gnueabihf/release/*
+    
+    publish-release:
+      name: Create release
+      runs-on: ubuntu-latest
+      needs: [ build-windows-x64, build-linux-x64, build-linux-armv7 ]
+      steps:
+
+        - name: Download win-x64 artifacts
+          uses: actions/download-artifact@v3
+          with:
+            name: tcping-win-x64
+            path: tcping-win-x64
+
+        - name: Download linux-x64 artifacts
+          uses: actions/download-artifact@v3
+          with:
+            name: tcping-linux-x64
+            path: tcping-linux-x64
+
+        - name: Download linux-armv7 artifacts
+          uses: actions/download-artifact@v3
+          with:
+            name: tcping-linux-armv7
+            path: tcping-linux-armv7
+
+        - name: Create and populate publish dir
+          run: |
+            mkdir publish
+            cp tcping-win-x64/tcping.exe publish/tcping-win-x64.exe
+            cp tcping-linux-x64/tcping publish/tcping-linux-x64
+            cp tcping-linux-armv7/tcping publish/tcping-linux-armv7
+
+        - name: Upload binaries to release
+          uses: svenstaro/upload-release-action@v2
+          with:
+            repo_token: ${{ secrets.GITHUB_TOKEN }}
+            file: publish/*
+            tag: ${{ github.ref }}
+            overwrite: true
