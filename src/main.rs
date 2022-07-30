@@ -1,7 +1,6 @@
 extern crate chrono;
 extern crate clap;
 extern crate console;
-extern crate tokio;
 
 use std::cmp::PartialOrd;
 use std::error::Error;
@@ -9,6 +8,7 @@ use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
+use tokio::time;
 
 use crate::chrono::Local;
 use crate::clap::{App, AppSettings, Arg, ArgMatches};
@@ -28,7 +28,7 @@ async fn main() {
 
 async fn main_impl() -> Result<(), Box<dyn Error>> {
     let matches = App::new("tcping")
-        .version("0.9.5")
+        .version("0.9.6")
         .about("TCP ping utility by Kirill Shlenskiy (2022)")
         .arg(Arg::from_usage("<target> 'TCP ping target in \"host:port\" format (i.e. google.com:80)'"))
         .arg(Arg::from_usage("-t 'Ping until stopped with Ctrl+C'"))
@@ -68,7 +68,7 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     let mut results = Vec::new();
 
     while continuous || (results.len() as u64) < count {
-        tokio::time::sleep(Duration::from_millis(interval_ms)).await;
+        time::sleep(Duration::from_millis(interval_ms)).await;
         results.push(print_timed_ping(&addr, TIMEOUT_SECS, false, continuous));
     }
 
