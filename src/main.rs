@@ -1,13 +1,13 @@
 extern crate chrono;
 extern crate clap;
 extern crate console;
+extern crate tokio;
 
 use std::cmp::PartialOrd;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
 use std::str::FromStr;
-use std::thread;
 use std::time::{Duration, Instant};
 
 use crate::chrono::Local;
@@ -16,8 +16,9 @@ use crate::console::{style};
 
 const TIMEOUT_SECS: u64 = 4;
 
-fn main() {
-    let res = main_impl();
+#[tokio::main]
+async fn main() {
+    let res = main_impl().await;
 
     if let Err(err) = res {
         println!("{} {}", style("Error:").red().bold(), err);
@@ -25,7 +26,7 @@ fn main() {
     }
 }
 
-fn main_impl() -> Result<(), Box<dyn Error>> {
+async fn main_impl() -> Result<(), Box<dyn Error>> {
     let matches = App::new("tcping")
         .version("0.9.5")
         .about("TCP ping utility by Kirill Shlenskiy (2022)")
@@ -67,7 +68,7 @@ fn main_impl() -> Result<(), Box<dyn Error>> {
     let mut results = Vec::new();
 
     while continuous || (results.len() as u64) < count {
-        thread::sleep(Duration::from_millis(interval_ms));
+        tokio::time::sleep(Duration::from_millis(interval_ms)).await;
         results.push(print_timed_ping(&addr, TIMEOUT_SECS, false, continuous));
     }
 
