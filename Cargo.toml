@@ -6,7 +6,7 @@ edition = "2018"
 build = "src/build.rs"
 
 [dependencies]
-chrono = "0.4.34"
+chrono = "0.4.38"
 clap = "2.34.0"
 console = "0.7.7"
 tokio = { version = "1", features = ["macros", "rt-multi-thread", "time"] }
