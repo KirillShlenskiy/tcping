@@ -12,7 +12,7 @@ use tokio::time;
 
 use crate::chrono::Local;
 use crate::clap::{App, AppSettings, Arg, ArgMatches};
-use crate::console::{style};
+use crate::console::style;
 
 const TIMEOUT_SECS: u64 = 4;
 
