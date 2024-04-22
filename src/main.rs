@@ -5,13 +5,14 @@ extern crate console;
 use std::cmp::PartialOrd;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
-use std::net::{SocketAddr, ToSocketAddrs, TcpStream};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
+use clap::Command;
 use tokio::time;
 
 use crate::chrono::Local;
-use crate::clap::{App, AppSettings, Arg, ArgMatches};
+use crate::clap::{Arg, ArgMatches};
 use crate::console::style;
 
 const TIMEOUT_SECS: u64 = 4;
@@ -27,22 +28,32 @@ async fn main() {
 }
 
 async fn main_impl() -> Result<(), Box<dyn Error>> {
-    let matches = App::new("tcping")
-        .version("0.9.9")
-        .about("TCP ping utility by Kirill Shlenskiy (2024)")
-        .arg(Arg::from_usage("<target> 'TCP ping target in \"host:port\" format (i.e. google.com:80)'"))
-        .arg(Arg::from_usage("-t 'Ping until stopped with Ctrl+C'"))
-        .arg(Arg::from_usage("-n=[count] 'Number of TCP requests (not counting warmup) to send'"))
-        .arg(Arg::from_usage("-i=[interval] 'Interval (in milliseconds) between requests; the default is 1000'"))
-        .setting(AppSettings::ArgRequiredElseHelp)
-        .setting(AppSettings::DisableVersion)
-        .setting(AppSettings::UnifiedHelpMessage)
+    let matches = Command::new("tcping")
+        .about("TCP ping utility by Kirill Shlenskiy (2024) v0.9.9")
+        .arg(Arg::new("target")
+            .help("TCP ping target in \"host:port\" format (i.e. google.com:80)")
+            .value_name("target")
+            .required(true))
+        .arg(Arg::new("t")
+            .short('t')
+            .long("continuous")
+            .action(clap::ArgAction::SetTrue)
+            .help("Ping until stopped with Ctrl+C"))
+        .arg(Arg::new("n")
+            .short('n')
+            .long("count")
+            .help("Number of TCP requests (not counting warmup) to send"))
+        .arg(Arg::new("i")
+            .short('i')
+            .long("interval")
+            .help("Interval (in milliseconds) between requests; the default is 1000"))
+        .arg_required_else_help(true)
         .get_matches();
 
-    let continuous = matches.is_present("t");
+        let continuous = matches.contains_id("t");
     let count: u64 = parse_arg(&matches, "n", 4)?;
     let interval_ms: u64 = parse_arg(&matches, "i", 1_000)?;
-    let target = matches.value_of("target").unwrap();
+    let target = matches.get_one::<String>("target").unwrap();
 
     let addr = match target.to_socket_addrs() {
         Ok(mut addr_list) => addr_list.next().unwrap(),
@@ -82,7 +93,7 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
 }
 
 fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) -> Result<T, T::Err> {
-    match matches.value_of(name) {
+    match matches.get_one::<String>(name) {
         None => Ok(default_value),
         Some(value_str) => {
             match value_str.parse() {
