@@ -60,19 +60,19 @@ jobs:
     steps:
 
       - name: Download win-x64 artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: win-x64
           path: win-x64
 
       - name: Download linux-x64 artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-x64
           path: linux-x64
 
       - name: Download linux-armv7 artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: linux-armv7
           path: linux-armv7
