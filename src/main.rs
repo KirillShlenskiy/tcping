@@ -28,7 +28,7 @@ async fn main() {
 }
 
 async fn main_impl() -> Result<(), Box<dyn Error>> {
-    let matches = Command::new("tcping")
+    let mut cmd = Command::new("tcping")
         .about("TCP ping utility by Kirill Shlenskiy (2024) v0.9.9")
         .arg(Arg::new("target")
             .help("TCP ping target in \"host:port\" format (i.e. google.com:80)")
@@ -47,9 +47,14 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
             .short('i')
             .long("interval")
             .help("Interval (in milliseconds) between requests; the default is 1000"))
-        .arg_required_else_help(true)
-        .get_matches();
+        .arg_required_else_help(true);
 
+    if std::env::args().len() <= 1 {
+        cmd.print_help().unwrap();
+        return Ok(());
+    }
+
+    let matches = cmd.get_matches();
     let continuous = matches.get_one::<bool>("t").unwrap().to_owned();
     let count: u64 = parse_arg(&matches, "n", 4)?;
     let interval_ms: u64 = parse_arg(&matches, "i", 1_000)?;
