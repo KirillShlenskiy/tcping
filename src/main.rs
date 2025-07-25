@@ -224,3 +224,37 @@ fn fmt_err(err: &impl Error) -> String
     // Collect Vec<char> -> String.
     desc.iter().collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::net::TcpListener;
+
+    #[test]
+    fn test_timed_ping_success() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let result = timed_ping(&addr, 1);
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_timed_ping_timeout() {
+        // Find an unused port.
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        drop(listener);
+
+        let result = timed_ping(&addr, 1);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_print_stats() {
+        let results = vec![Some(10.0), Some(20.0), Some(30.0), None];
+        // This test will just execute the function to ensure it doesn't panic.
+        // We can't easily assert the output without capturing stdout.
+        print_stats(&results);
+    }
+}
