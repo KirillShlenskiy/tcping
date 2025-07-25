@@ -55,7 +55,7 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     }
 
     let matches = cmd.get_matches();
-    let continuous = matches.get_one::<bool>("t").unwrap().to_owned();
+    let continuous = matches.get_flag("t");
     let count: u64 = parse_arg(&matches, "n", 4)?;
     let interval_ms: u64 = parse_arg(&matches, "i", 1_000)?;
     let target = matches.get_one::<String>("target").unwrap();
