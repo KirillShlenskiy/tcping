@@ -41,40 +41,24 @@ Notes:
 
 Basic port connectivity testing:
 
-```
-$ tcping google.com:443
-
-> 172.217.167.110:443 (warmup): 6.37 ms
-> 172.217.167.110:443: 7.09 ms
-> 172.217.167.110:443: 5.84 ms
-> 172.217.167.110:443: 7.20 ms
-> 172.217.167.110:443: 6.00 ms
-
-  Sent = 4, Received = 4 (100%)
-  Minimum = 5.84ms, Maximum = 7.20ms, Average = 6.53ms
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screens/basic_example.svg" />
+  <img alt="Example tcping output" src="docs/screens/basic_example.svg" />
+</picture>
 
 Continuous monitoring (timestamps) with a 500ms interval:
 
-```
-$ tcping google.com:443 -t --interval 500
-[01:21:31] 172.217.167.110:443 (warmup): 6.19 ms
-[01:21:31] 172.217.167.110:443: 6.94 ms
-[01:21:32] 172.217.167.110:443: 6.88 ms
-[01:21:32] 172.217.167.110:443: 6.47 ms
-...
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screens/continuous_example.svg" />
+  <img alt="Continuous tcping output" src="docs/screens/continuous_example.svg" />
+</picture>
 
 Service availability monitoring (when ICMP ping is blocked):
 
-```
-$ tcping myserver.myregion.cloudapp.azure.com:22 -t
-[01:12:15] XXX.XXX.XXX.XXX:22 (warmup): connection timed out
-[01:12:20] XXX.XXX.XXX.XXX:22: connection timed out
-[01:12:25] XXX.XXX.XXX.XXX:22: connection timed out
-[01:12:30] XXX.XXX.XXX.XXX:22: 551.16 ms
-[01:12:32] XXX.XXX.XXX.XXX:22: 14.24 ms
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/screens/service_example.svg" />
+  <img alt="Service availability tcping output" src="docs/screens/service_example.svg" />
+</picture>
 
 ## Tips
 
