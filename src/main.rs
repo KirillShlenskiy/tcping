@@ -29,7 +29,7 @@ async fn main() {
 
 async fn main_impl() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::new("tcping")
-        .about("TCP ping utility by Kirill Shlenskiy (2024) v0.9.9")
+        .about("TCP ping utility by Kirill Shlenskiy (2024) v0.9.10")
         .arg(Arg::new("target")
             .help("TCP ping target in \"host:port\" format (i.e. google.com:80)")
             .value_name("target")
