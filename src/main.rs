@@ -2,13 +2,13 @@ extern crate chrono;
 extern crate clap;
 extern crate console;
 
+use clap::Command;
 use std::cmp::PartialOrd;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
-use clap::Command;
 use tokio::time;
 
 use crate::chrono::Local;
@@ -30,23 +30,31 @@ async fn main() {
 async fn main_impl() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::new("tcping")
         .about("TCP ping utility by Kirill Shlenskiy (2024) v0.9.10")
-        .arg(Arg::new("target")
-            .help("TCP ping target in \"host:port\" format (i.e. google.com:80)")
-            .value_name("target")
-            .required(true))
-        .arg(Arg::new("t")
-            .short('t')
-            .long("continuous")
-            .action(clap::ArgAction::SetTrue)
-            .help("Ping until stopped with Ctrl+C"))
-        .arg(Arg::new("n")
-            .short('n')
-            .long("count")
-            .help("Number of TCP requests (not counting warmup) to send"))
-        .arg(Arg::new("i")
-            .short('i')
-            .long("interval")
-            .help("Interval (in milliseconds) between requests; the default is 1000"))
+        .arg(
+            Arg::new("target")
+                .help("TCP ping target in \"host:port\" format (i.e. google.com:80)")
+                .value_name("target")
+                .required(true),
+        )
+        .arg(
+            Arg::new("t")
+                .short('t')
+                .long("continuous")
+                .action(clap::ArgAction::SetTrue)
+                .help("Ping until stopped with Ctrl+C"),
+        )
+        .arg(
+            Arg::new("n")
+                .short('n')
+                .long("count")
+                .help("Number of TCP requests (not counting warmup) to send"),
+        )
+        .arg(
+            Arg::new("i")
+                .short('i')
+                .long("interval")
+                .help("Interval (in milliseconds) between requests; the default is 1000"),
+        )
         .arg_required_else_help(true);
 
     if std::env::args().len() <= 1 {
@@ -65,9 +73,10 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
         Err(err) => {
             let error_text = {
                 if err.to_string() == "invalid socket address" {
-                    String::from("Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').")
-                }
-                else {
+                    String::from(
+                        "Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').",
+                    )
+                } else {
                     fmt_err(&err)
                 }
             };
@@ -93,22 +102,20 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
         println!();
         print_stats(&results);
     }
-    
+
     Ok(())
 }
 
-fn parse_arg<T : FromStr>(matches: &ArgMatches, name: &str, default_value: T) -> Result<T, T::Err> {
+fn parse_arg<T: FromStr>(matches: &ArgMatches, name: &str, default_value: T) -> Result<T, T::Err> {
     match matches.get_one::<String>(name) {
         None => Ok(default_value),
-        Some(value_str) => {
-            match value_str.parse() {
-                Ok(value) => Ok(value),
-                Err(err) => {
-                    println!("Invalid {}.", name);
-                    Err(err)
-                }
+        Some(value_str) => match value_str.parse() {
+            Ok(value) => Ok(value),
+            Err(err) => {
+                println!("Invalid {}.", name);
+                Err(err)
             }
-        }
+        },
     }
 }
 
@@ -117,28 +124,23 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
         if time {
             let now = Local::now().format("%H:%M:%S");
             print!("[{}] {} (warmup): ", &now, addr);
-        }
-        else {
+        } else {
             print!("> {} (warmup): ", addr);
         }
-        
+
         io::stdout().flush().unwrap();
-    }
-    else {
-        if time {
-            let now = Local::now().format("%H:%M:%S");
-            print!("[{}] {}: ", &now, addr);
-        }
-        else {
-            print!("> {}: ", addr);
-        }
+    } else if time {
+        let now = Local::now().format("%H:%M:%S");
+        print!("[{}] {}: ", &now, addr);
+    } else {
+        print!("> {}: ", addr);
     }
 
-    match timed_ping(&addr, timeout_secs) {
+    match timed_ping(addr, timeout_secs) {
         Err(err) => {
             println!("{}", style(&err).cyan());
             None
-        },
+        }
         Ok(latency_ms) => {
             println!("{:.2} ms", style(latency_ms).green().bold());
             Some(latency_ms)
@@ -149,9 +151,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
 fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, IOError> {
     let start = Instant::now();
 
-    if let Err(err) = TcpStream::connect_timeout(&addr, Duration::from_secs(timeout_secs)) {
-        return Err(err);
-    }
+    TcpStream::connect_timeout(addr, Duration::from_secs(timeout_secs))?;
 
     let finish = Instant::now();
     let diff = finish - start;
@@ -162,53 +162,70 @@ fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, IOError> {
 }
 
 fn print_stats(results: &[Option<f64>]) {
-    let successes: Vec<f64> = results.iter()
-        .filter_map(|&r| r)
-        .collect();
+    let successes: Vec<f64> = results.iter().filter_map(|&r| r).collect();
 
     let success_percent = successes.len() * 100 / results.len();
 
     let formatted_percent = {
         match success_percent {
-            100 => format!("{}{}", style(&success_percent).green().bold(), style("%").green().bold()),
-            0 => format!("{}{}", style(&success_percent).red().bold(), style("%").red().bold()),
-            _ => format!("{}{}", style(&success_percent).yellow(), style("%").yellow())
+            100 => format!(
+                "{}{}",
+                style(&success_percent).green().bold(),
+                style("%").green().bold()
+            ),
+            0 => format!(
+                "{}{}",
+                style(&success_percent).red().bold(),
+                style("%").red().bold()
+            ),
+            _ => format!(
+                "{}{}",
+                style(&success_percent).yellow(),
+                style("%").yellow()
+            ),
         }
     };
 
-    println!("  Sent = {:.2}, Received = {:.2} ({})", results.len(), successes.len(), formatted_percent);
+    println!(
+        "  Sent = {:.2}, Received = {:.2} ({})",
+        results.len(),
+        successes.len(),
+        formatted_percent
+    );
 
     if !successes.is_empty() {
-        let min = successes.iter()
+        let min = successes
+            .iter()
             .min_by(|&x, &y| x.partial_cmp(y).unwrap())
             .unwrap();
 
-        let max = successes.iter()
+        let max = successes
+            .iter()
             .max_by(|&x, &y| x.partial_cmp(y).unwrap())
             .unwrap();
 
-        let avg = successes.iter()
-            .sum::<f64>() / successes.len() as f64;
+        let avg = successes.iter().sum::<f64>() / successes.len() as f64;
 
-        println!("  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms", min, max, avg);
+        println!(
+            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
+            min, max, avg
+        );
     }
 }
 
-fn fmt_err(err: &impl Error) -> String
-{
+fn fmt_err(err: &impl Error) -> String {
     let mut desc = Vec::new();
     {
         let desc_orig = err.to_string();
-        let mut desc_chars = desc_orig.chars();
+        let desc_chars = desc_orig.chars();
 
-        while let Some(c) = desc_chars.next() {
+        for c in desc_chars {
             // Capitalise first letter.
             if desc.is_empty() && c.is_lowercase() {
                 for u in c.to_uppercase() {
                     desc.push(u);
                 }
-            }
-            else {
+            } else {
                 desc.push(c);
             }
         }
