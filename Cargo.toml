@@ -2,7 +2,7 @@
 name = "tcping"
 version = "0.9.10"
 authors = ["Kirill Shlenskiy"]
-edition = "2021"
+edition = "2024"
 build = "src/build.rs"
 
 [dependencies]

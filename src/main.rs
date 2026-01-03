@@ -1,19 +1,12 @@
-extern crate chrono;
-extern crate clap;
-extern crate console;
-
-use clap::Command;
-use std::cmp::PartialOrd;
+use chrono::Local;
+use clap::{Arg, ArgMatches, Command};
+use console::style;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::time;
-
-use crate::chrono::Local;
-use crate::clap::{Arg, ArgMatches};
-use crate::console::style;
 
 const TIMEOUT_SECS: u64 = 4;
 
@@ -29,7 +22,10 @@ async fn main() {
 
 async fn main_impl() -> Result<(), Box<dyn Error>> {
     let mut cmd = Command::new("tcping")
-        .about("TCP ping utility by Kirill Shlenskiy (2024) v0.9.10")
+        .about(concat!(
+            "TCP ping utility by Kirill Shlenskiy (2024) v",
+            env!("CARGO_PKG_VERSION")
+        ))
         .arg(
             Arg::new("target")
                 .help("TCP ping target in \"host:port\" format (i.e. google.com:80)")
@@ -153,16 +149,11 @@ fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, IOError> {
 
     TcpStream::connect_timeout(addr, Duration::from_secs(timeout_secs))?;
 
-    let finish = Instant::now();
-    let diff = finish - start;
-    let diff_ns = diff.subsec_nanos();
-    let diff_ms = diff_ns as f64 / 1_000_000_f64 + diff.as_secs() as f64 * 1_000_f64;
-
-    Ok(diff_ms)
+    Ok(start.elapsed().as_secs_f64() * 1000.0)
 }
 
 fn print_stats(results: &[Option<f64>]) {
-    let successes: Vec<f64> = results.iter().filter_map(|&r| r).collect();
+    let successes: Vec<f64> = results.iter().copied().flatten().collect();
 
     let success_percent = successes.len() * 100 / results.len();
 
@@ -187,7 +178,7 @@ fn print_stats(results: &[Option<f64>]) {
     };
 
     println!(
-        "  Sent = {:.2}, Received = {:.2} ({})",
+        "  Sent = {}, Received = {} ({})",
         results.len(),
         successes.len(),
         formatted_percent
@@ -232,10 +223,8 @@ fn fmt_err(err: &impl Error) -> String {
     }
 
     // Ensure there is a full stop at the end.
-    if let Some(last_char) = desc.last() {
-        if last_char != &'.' {
-            desc.push('.');
-        }
+    if let Some(last_char) = desc.last() && last_char != &'.' {
+        desc.push('.');
     }
 
     // Collect Vec<char> -> String.

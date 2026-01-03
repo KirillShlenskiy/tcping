@@ -3,9 +3,8 @@ extern crate winres;
 
 #[cfg(target_os = "windows")]
 fn main() {
-    if std::env::var("PROFILE").unwrap() == "release" {
-        let res = winres::WindowsResource::new();
-        res.compile().unwrap();
+    if std::env::var("PROFILE").is_ok_and(|p| p == "release") {
+        winres::WindowsResource::new().compile().unwrap();
     }
 }
 
