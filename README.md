@@ -30,13 +30,12 @@ Options:
   -t, --continuous       Ping until stopped with Ctrl+C
   -n, --count <n>        Number of TCP requests (not counting warmup) to send
   -i, --interval <i>     Interval (in milliseconds) between requests; the default is 1000
-  -w, --timeout <t>      Timeout (in milliseconds) for each TCP connect; the default is 4000
   -h, --help             Print help
 
 ```
 
 Notes:
-- Default TCP connect timeout is 4000ms (override with `--timeout`).
+- Default TCP connect timeout is 4000ms.
 
 - Colors indicate success ratio (green for 100%, red for 0%, yellow otherwise).
 

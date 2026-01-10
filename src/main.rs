@@ -12,7 +12,6 @@ const DEFAULT_COUNT_STR: &str = "4";
 const DEFAULT_INTERVAL_MS: u64 = 1_000;
 const DEFAULT_INTERVAL_MS_STR: &str = "1000";
 const DEFAULT_TIMEOUT_MS: u64 = 4_000;
-const DEFAULT_TIMEOUT_MS_STR: &str = "4000";
 
 #[tokio::main]
 async fn main() {
@@ -59,14 +58,6 @@ fn build_cli() -> Command {
                 .default_value(DEFAULT_INTERVAL_MS_STR)
                 .help("Interval (in milliseconds) between requests"),
         )
-        .arg(
-            Arg::new("timeout")
-                .short('w')
-                .long("timeout")
-                .value_parser(clap::value_parser!(u64).range(1..))
-                .default_value(DEFAULT_TIMEOUT_MS_STR)
-                .help("Timeout (in milliseconds) for each TCP connect"),
-        )
         .arg_required_else_help(true)
 }
 
@@ -82,20 +73,24 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     let continuous = matches.get_flag("continuous");
     let count = *matches.get_one::<u64>("count").unwrap();
     let interval_ms = *matches.get_one::<u64>("interval").unwrap();
-    let timeout_ms = *matches.get_one::<u64>("timeout").unwrap();
     let target = matches.get_one::<String>("target").unwrap();
 
     let addr = resolve_target(target)?;
 
     // Warmup.
-    print_timed_ping(&addr, timeout_ms, true, continuous);
+    print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, true, continuous);
 
     // Actual timed ping.
     let mut results = Vec::new();
 
     while continuous || (results.len() as u64) < count {
         time::sleep(Duration::from_millis(interval_ms)).await;
-        results.push(print_timed_ping(&addr, timeout_ms, false, continuous));
+        results.push(print_timed_ping(
+            &addr,
+            DEFAULT_TIMEOUT_MS,
+            false,
+            continuous,
+        ));
     }
 
     if !results.is_empty() {
@@ -290,10 +285,6 @@ mod tests {
         assert_eq!(
             *matches.get_one::<u64>("interval").unwrap(),
             DEFAULT_INTERVAL_MS
-        );
-        assert_eq!(
-            *matches.get_one::<u64>("timeout").unwrap(),
-            DEFAULT_TIMEOUT_MS
         );
     }
 
