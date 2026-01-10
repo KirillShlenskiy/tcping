@@ -7,8 +7,6 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::{Duration, Instant};
 use tokio::time;
 
-const DEFAULT_COUNT: u64 = 4;
-const DEFAULT_INTERVAL_MS: u64 = 1_000;
 const DEFAULT_TIMEOUT_MS: u64 = 4_000;
 
 #[tokio::main]
@@ -279,11 +277,8 @@ mod tests {
         let matches = build_cli()
             .try_get_matches_from(["tcping", "localhost:80"])
             .unwrap();
-        assert_eq!(*matches.get_one::<u64>("count").unwrap(), DEFAULT_COUNT);
-        assert_eq!(
-            *matches.get_one::<u64>("interval").unwrap(),
-            DEFAULT_INTERVAL_MS
-        );
+        assert_eq!(*matches.get_one::<u64>("count").unwrap(), 4);
+        assert_eq!(*matches.get_one::<u64>("interval").unwrap(), 1_000);
     }
 
     #[test]
