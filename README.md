@@ -31,7 +31,6 @@ Options:
   -n, --count <n>        Number of TCP requests (not counting warmup) to send
   -i, --interval <i>     Interval (in milliseconds) between requests; the default is 1000
   -h, --help             Print help
-
 ```
 
 Notes:
