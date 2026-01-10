@@ -1,14 +1,13 @@
 use chrono::Local;
-use clap::{Arg, ArgMatches, Command};
+use clap::{Arg, Command};
 use console::style;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-use std::str::FromStr;
 use std::time::{Duration, Instant};
 use tokio::time;
 
-const TIMEOUT_SECS: u64 = 4;
+const DEFAULT_TIMEOUT_MS: u64 = 4_000;
 
 #[tokio::main]
 async fn main() {
@@ -20,8 +19,8 @@ async fn main() {
     }
 }
 
-async fn main_impl() -> Result<(), Box<dyn Error>> {
-    let mut cmd = Command::new("tcping")
+fn build_cli() -> Command {
+    Command::new("tcping")
         .about(concat!(
             "TCP ping utility by Kirill Shlenskiy (2024) v",
             env!("CARGO_PKG_VERSION")
@@ -33,25 +32,33 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
                 .required(true),
         )
         .arg(
-            Arg::new("t")
+            Arg::new("continuous")
                 .short('t')
                 .long("continuous")
                 .action(clap::ArgAction::SetTrue)
                 .help("Ping until stopped with Ctrl+C"),
         )
         .arg(
-            Arg::new("n")
+            Arg::new("count")
                 .short('n')
                 .long("count")
+                .value_parser(clap::value_parser!(u64).range(1..))
+                .default_value("4")
                 .help("Number of TCP requests (not counting warmup) to send"),
         )
         .arg(
-            Arg::new("i")
+            Arg::new("interval")
                 .short('i')
                 .long("interval")
-                .help("Interval (in milliseconds) between requests; the default is 1000"),
+                .value_parser(clap::value_parser!(u64).range(1..))
+                .default_value("1000")
+                .help("Interval (in milliseconds) between requests"),
         )
-        .arg_required_else_help(true);
+        .arg_required_else_help(true)
+}
+
+async fn main_impl() -> Result<(), Box<dyn Error>> {
+    let mut cmd = build_cli();
 
     if std::env::args().len() <= 1 {
         cmd.print_help().unwrap();
@@ -59,38 +66,27 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     }
 
     let matches = cmd.get_matches();
-    let continuous = matches.get_flag("t");
-    let count: u64 = parse_arg(&matches, "n", 4)?;
-    let interval_ms: u64 = parse_arg(&matches, "i", 1_000)?;
+    let continuous = matches.get_flag("continuous");
+    let count = *matches.get_one::<u64>("count").unwrap();
+    let interval_ms = *matches.get_one::<u64>("interval").unwrap();
     let target = matches.get_one::<String>("target").unwrap();
 
-    let addr = match target.to_socket_addrs() {
-        Ok(mut addr_list) => addr_list.next().unwrap(),
-        Err(err) => {
-            let error_text = {
-                if err.to_string() == "invalid socket address" {
-                    String::from(
-                        "Invalid argument. Expected format: 'host:port' (i.e. 'google.com:80').",
-                    )
-                } else {
-                    fmt_err(&err)
-                }
-            };
-
-            println!("{}", error_text);
-            return Err(Box::new(err));
-        }
-    };
+    let addr = resolve_target(target)?;
 
     // Warmup.
-    print_timed_ping(&addr, TIMEOUT_SECS, true, continuous);
+    print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, true, continuous);
 
     // Actual timed ping.
     let mut results = Vec::new();
 
     while continuous || (results.len() as u64) < count {
         time::sleep(Duration::from_millis(interval_ms)).await;
-        results.push(print_timed_ping(&addr, TIMEOUT_SECS, false, continuous));
+        results.push(print_timed_ping(
+            &addr,
+            DEFAULT_TIMEOUT_MS,
+            false,
+            continuous,
+        ));
     }
 
     if !results.is_empty() {
@@ -102,20 +98,31 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn parse_arg<T: FromStr>(matches: &ArgMatches, name: &str, default_value: T) -> Result<T, T::Err> {
-    match matches.get_one::<String>(name) {
-        None => Ok(default_value),
-        Some(value_str) => match value_str.parse() {
-            Ok(value) => Ok(value),
-            Err(err) => {
-                println!("Invalid {}.", name);
-                Err(err)
-            }
-        },
+fn resolve_target(target: &str) -> Result<SocketAddr, IOError> {
+    match target.to_socket_addrs() {
+        Ok(mut addr_list) => addr_list.next().ok_or_else(|| {
+            IOError::new(
+                io::ErrorKind::InvalidInput,
+                format!("No addresses resolved for '{}'.", target),
+            )
+        }),
+        Err(err) => {
+            let error_detail = fmt_err(&err);
+            let message = if err.kind() == io::ErrorKind::InvalidInput {
+                format!(
+                    "Invalid target '{}'. Expected format: 'host:port' (i.e. 'google.com:80'). {}",
+                    target, error_detail
+                )
+            } else {
+                format!("Failed to resolve target '{}': {}", target, error_detail)
+            };
+
+            Err(IOError::new(err.kind(), message))
+        }
     }
 }
 
-fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bool) -> Option<f64> {
+fn print_timed_ping(addr: &SocketAddr, timeout_ms: u64, warmup: bool, time: bool) -> Option<f64> {
     if warmup {
         if time {
             let now = Local::now().format("%H:%M:%S");
@@ -132,7 +139,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
         print!("> {}: ", addr);
     }
 
-    match timed_ping(addr, timeout_secs) {
+    match timed_ping(addr, timeout_ms) {
         Err(err) => {
             println!("{}", style(&err).cyan());
             None
@@ -144,10 +151,10 @@ fn print_timed_ping(addr: &SocketAddr, timeout_secs: u64, warmup: bool, time: bo
     }
 }
 
-fn timed_ping(addr: &SocketAddr, timeout_secs: u64) -> Result<f64, IOError> {
+fn timed_ping(addr: &SocketAddr, timeout_ms: u64) -> Result<f64, IOError> {
     let start = Instant::now();
 
-    TcpStream::connect_timeout(addr, Duration::from_secs(timeout_secs))?;
+    TcpStream::connect_timeout(addr, Duration::from_millis(timeout_ms))?;
 
     Ok(start.elapsed().as_secs_f64() * 1000.0)
 }
@@ -223,7 +230,9 @@ fn fmt_err(err: &impl Error) -> String {
     }
 
     // Ensure there is a full stop at the end.
-    if let Some(last_char) = desc.last() && last_char != &'.' {
+    if let Some(last_char) = desc.last()
+        && last_char != &'.'
+    {
         desc.push('.');
     }
 
@@ -234,6 +243,7 @@ fn fmt_err(err: &impl Error) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io;
     use std::net::TcpListener;
 
     #[test]
@@ -241,7 +251,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
 
-        let result = timed_ping(&addr, 1);
+        let result = timed_ping(&addr, DEFAULT_TIMEOUT_MS);
         assert!(result.is_ok());
     }
 
@@ -254,6 +264,35 @@ mod tests {
 
         let result = timed_ping(&addr, 1);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_fmt_err_formats_message() {
+        let err = io::Error::new(io::ErrorKind::Other, "sample error");
+        assert_eq!(fmt_err(&err), "Sample error.");
+    }
+
+    #[test]
+    fn test_cli_defaults() {
+        let matches = build_cli()
+            .try_get_matches_from(["tcping", "localhost:80"])
+            .unwrap();
+        assert_eq!(*matches.get_one::<u64>("count").unwrap(), 4);
+        assert_eq!(*matches.get_one::<u64>("interval").unwrap(), 1_000);
+    }
+
+    #[test]
+    fn test_cli_rejects_zero_count() {
+        let result = build_cli().try_get_matches_from(["tcping", "-n", "0", "localhost:80"]);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_resolve_target_invalid() {
+        let err = resolve_target("invalid-target").unwrap_err();
+        let message = err.to_string();
+        assert!(message.contains("Invalid target"));
+        assert!(message.contains("host:port"));
     }
 
     #[test]

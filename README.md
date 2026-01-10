@@ -27,10 +27,10 @@ Arguments:
   <target>  TCP ping target in "host:port" format (i.e. google.com:80)
 
 Options:
-  -t, --continuous    Ping until stopped with Ctrl+C
-  -n, --count <n>     Number of TCP requests (not counting warmup) to send
-  -i, --interval <i>  Interval (in milliseconds) between requests; the default is 1000
-  -h, --help          Print help
+  -t, --continuous       Ping until stopped with Ctrl+C
+  -n, --count <n>        Number of TCP requests (not counting warmup) to send
+  -i, --interval <i>     Interval (in milliseconds) between requests; the default is 1000
+  -h, --help             Print help
 ```
 
 Notes:
