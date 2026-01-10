@@ -35,7 +35,7 @@ Options:
 ```
 
 Notes:
-- Default TCP connect timeout is 4000ms.
+- Default TCP connect timeout is 4 seconds.
 
 - Colors indicate success ratio (green for 100%, red for 0%, yellow otherwise).
 

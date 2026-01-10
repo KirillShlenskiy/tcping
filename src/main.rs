@@ -8,9 +8,7 @@ use std::time::{Duration, Instant};
 use tokio::time;
 
 const DEFAULT_COUNT: u64 = 4;
-const DEFAULT_COUNT_STR: &str = "4";
 const DEFAULT_INTERVAL_MS: u64 = 1_000;
-const DEFAULT_INTERVAL_MS_STR: &str = "1000";
 const DEFAULT_TIMEOUT_MS: u64 = 4_000;
 
 #[tokio::main]
@@ -47,7 +45,7 @@ fn build_cli() -> Command {
                 .short('n')
                 .long("count")
                 .value_parser(clap::value_parser!(u64).range(1..))
-                .default_value(DEFAULT_COUNT_STR)
+                .default_value("4")
                 .help("Number of TCP requests (not counting warmup) to send"),
         )
         .arg(
@@ -55,7 +53,7 @@ fn build_cli() -> Command {
                 .short('i')
                 .long("interval")
                 .value_parser(clap::value_parser!(u64).range(1..))
-                .default_value(DEFAULT_INTERVAL_MS_STR)
+                .default_value("1000")
                 .help("Interval (in milliseconds) between requests"),
         )
         .arg_required_else_help(true)
