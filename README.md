@@ -27,14 +27,17 @@ Arguments:
   <target>  TCP ping target in "host:port" format (i.e. google.com:80)
 
 Options:
-  -t, --continuous    Ping until stopped with Ctrl+C
-  -n, --count <n>     Number of TCP requests (not counting warmup) to send
-  -i, --interval <i>  Interval (in milliseconds) between requests; the default is 1000
-  -h, --help          Print help
+  -t, --continuous       Ping until stopped with Ctrl+C
+  -n, --count <n>        Number of TCP requests (not counting warmup) to send
+  -i, --interval <i>     Interval (in milliseconds) between requests; the default is 1000
+  -w, --timeout <t>      Timeout (in milliseconds) for each TCP connect; the default is 4000
+  -h, --help             Print help
+
 ```
 
 Notes:
-- Default TCP connect timeout is 4 seconds.
+- Default TCP connect timeout is 4000ms (override with `--timeout`).
+
 - Colors indicate success ratio (green for 100%, red for 0%, yellow otherwise).
 
 ## Examples
