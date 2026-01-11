@@ -3,9 +3,9 @@ use clap::{Arg, Command};
 use console::style;
 use std::error::Error;
 use std::io::{self, Error as IOError, Write};
-use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::{Duration, Instant};
-use tokio::time;
+use tokio::{net::TcpStream, signal, time};
 
 const DEFAULT_TIMEOUT_MS: u64 = 4_000;
 
@@ -74,25 +74,42 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     let addr = resolve_target(target)?;
 
     // Warmup.
-    print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, true, continuous);
+    print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, true, continuous).await;
 
     // Actual timed ping.
-    let mut results = Vec::new();
+    let mut stats = PingStats::new();
 
-    while continuous || (results.len() as u64) < count {
-        time::sleep(Duration::from_millis(interval_ms)).await;
-        results.push(print_timed_ping(
-            &addr,
-            DEFAULT_TIMEOUT_MS,
-            false,
-            continuous,
-        ));
+    if continuous {
+        let ctrl_c = signal::ctrl_c();
+        tokio::pin!(ctrl_c);
+        loop {
+            tokio::select! {
+                _ = &mut ctrl_c => {
+                    break;
+                }
+                _ = time::sleep(Duration::from_millis(interval_ms)) => {
+                    let result = print_timed_ping(
+                        &addr,
+                        DEFAULT_TIMEOUT_MS,
+                        false,
+                        continuous,
+                    ).await;
+                    stats.record(result);
+                }
+            }
+        }
+    } else {
+        for _ in 0..count {
+            time::sleep(Duration::from_millis(interval_ms)).await;
+            let result = print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, false, continuous).await;
+            stats.record(result);
+        }
     }
 
-    if !results.is_empty() {
+    if stats.sent > 0 {
         // Print stats (psping format):
         println!();
-        print_stats(&results);
+        print_stats(&stats);
     }
 
     Ok(())
@@ -122,7 +139,12 @@ fn resolve_target(target: &str) -> Result<SocketAddr, IOError> {
     }
 }
 
-fn print_timed_ping(addr: &SocketAddr, timeout_ms: u64, warmup: bool, time: bool) -> Option<f64> {
+async fn print_timed_ping(
+    addr: &SocketAddr,
+    timeout_ms: u64,
+    warmup: bool,
+    time: bool,
+) -> Option<f64> {
     if warmup {
         if time {
             let now = Local::now().format("%H:%M:%S");
@@ -139,7 +161,7 @@ fn print_timed_ping(addr: &SocketAddr, timeout_ms: u64, warmup: bool, time: bool
         print!("> {}: ", addr);
     }
 
-    match timed_ping(addr, timeout_ms) {
+    match timed_ping(addr, timeout_ms).await {
         Err(err) => {
             println!("{}", style(&err).cyan());
             None
@@ -151,18 +173,60 @@ fn print_timed_ping(addr: &SocketAddr, timeout_ms: u64, warmup: bool, time: bool
     }
 }
 
-fn timed_ping(addr: &SocketAddr, timeout_ms: u64) -> Result<f64, IOError> {
+async fn timed_ping(addr: &SocketAddr, timeout_ms: u64) -> Result<f64, IOError> {
     let start = Instant::now();
 
-    TcpStream::connect_timeout(addr, Duration::from_millis(timeout_ms))?;
-
-    Ok(start.elapsed().as_secs_f64() * 1000.0)
+    let connect = TcpStream::connect(addr);
+    match time::timeout(Duration::from_millis(timeout_ms), connect).await {
+        Ok(Ok(_stream)) => Ok(start.elapsed().as_secs_f64() * 1000.0),
+        Ok(Err(err)) => Err(err),
+        Err(_) => Err(IOError::new(
+            io::ErrorKind::TimedOut,
+            "connection timed out",
+        )),
+    }
 }
 
-fn print_stats(results: &[Option<f64>]) {
-    let successes: Vec<f64> = results.iter().copied().flatten().collect();
+struct PingStats {
+    sent: usize,
+    received: usize,
+    min: Option<f64>,
+    max: Option<f64>,
+    sum: f64,
+}
 
-    let success_percent = successes.len() * 100 / results.len();
+impl PingStats {
+    fn new() -> Self {
+        Self {
+            sent: 0,
+            received: 0,
+            min: None,
+            max: None,
+            sum: 0.0,
+        }
+    }
+
+    fn record(&mut self, result: Option<f64>) {
+        self.sent += 1;
+        if let Some(latency) = result {
+            self.received += 1;
+            self.sum += latency;
+            self.min = Some(self.min.map_or(latency, |min| min.min(latency)));
+            self.max = Some(self.max.map_or(latency, |max| max.max(latency)));
+        }
+    }
+
+    fn avg(&self) -> Option<f64> {
+        if self.received == 0 {
+            None
+        } else {
+            Some(self.sum / self.received as f64)
+        }
+    }
+}
+
+fn print_stats(stats: &PingStats) {
+    let success_percent = stats.received * 100 / stats.sent;
 
     let formatted_percent = {
         match success_percent {
@@ -186,24 +250,10 @@ fn print_stats(results: &[Option<f64>]) {
 
     println!(
         "  Sent = {}, Received = {} ({})",
-        results.len(),
-        successes.len(),
-        formatted_percent
+        stats.sent, stats.received, formatted_percent
     );
 
-    if !successes.is_empty() {
-        let min = successes
-            .iter()
-            .min_by(|&x, &y| x.partial_cmp(y).unwrap())
-            .unwrap();
-
-        let max = successes
-            .iter()
-            .max_by(|&x, &y| x.partial_cmp(y).unwrap())
-            .unwrap();
-
-        let avg = successes.iter().sum::<f64>() / successes.len() as f64;
-
+    if let (Some(min), Some(max), Some(avg)) = (stats.min, stats.max, stats.avg()) {
         println!(
             "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
             min, max, avg
@@ -246,23 +296,23 @@ mod tests {
     use std::io;
     use std::net::TcpListener;
 
-    #[test]
-    fn test_timed_ping_success() {
+    #[tokio::test]
+    async fn test_timed_ping_success() {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
 
-        let result = timed_ping(&addr, DEFAULT_TIMEOUT_MS);
+        let result = timed_ping(&addr, DEFAULT_TIMEOUT_MS).await;
         assert!(result.is_ok());
     }
 
-    #[test]
-    fn test_timed_ping_timeout() {
+    #[tokio::test]
+    async fn test_timed_ping_timeout() {
         // Find an unused port.
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
         drop(listener);
 
-        let result = timed_ping(&addr, 1);
+        let result = timed_ping(&addr, 1).await;
         assert!(result.is_err());
     }
 
@@ -297,9 +347,12 @@ mod tests {
 
     #[test]
     fn test_print_stats() {
-        let results = vec![Some(10.0), Some(20.0), Some(30.0), None];
+        let mut stats = PingStats::new();
+        for result in [Some(10.0), Some(20.0), Some(30.0), None] {
+            stats.record(result);
+        }
         // This test will just execute the function to ensure it doesn't panic.
         // We can't easily assert the output without capturing stdout.
-        print_stats(&results);
+        print_stats(&stats);
     }
 }
