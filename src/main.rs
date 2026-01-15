@@ -82,18 +82,23 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     if continuous {
         let ctrl_c = signal::ctrl_c();
         tokio::pin!(ctrl_c);
-        loop {
+        'ping_loop: loop {
             tokio::select! {
                 _ = &mut ctrl_c => {
-                    break;
+                    break 'ping_loop;
                 }
                 _ = time::sleep(Duration::from_millis(interval_ms)) => {
-                    let result = print_timed_ping(
-                        &addr,
-                        DEFAULT_TIMEOUT_MS,
-                        false,
-                        continuous,
-                    ).await;
+                    let result = tokio::select! {
+                        _ = &mut ctrl_c => {
+                            break 'ping_loop;
+                        }
+                        result = print_timed_ping(
+                            &addr,
+                            DEFAULT_TIMEOUT_MS,
+                            false,
+                            continuous,
+                        ) => result,
+                    };
                     stats.record(result);
                 }
             }
