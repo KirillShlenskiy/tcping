@@ -87,13 +87,16 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
 
     if continuous {
         let ctrl_c = signal::ctrl_c();
+        let mut ticker = time::interval(Duration::from_millis(interval_ms));
+        ticker.set_missed_tick_behavior(time::MissedTickBehavior::Skip);
+        ticker.tick().await;
         tokio::pin!(ctrl_c);
         'ping_loop: loop {
             tokio::select! {
                 _ = &mut ctrl_c => {
                     break 'ping_loop;
                 }
-                _ = time::sleep(Duration::from_millis(interval_ms)) => {
+                _ = ticker.tick() => {
                     let result = tokio::select! {
                         _ = &mut ctrl_c => {
                             break 'ping_loop;
