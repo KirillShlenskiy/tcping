@@ -9,6 +9,12 @@ use tokio::{net::TcpStream, signal, time};
 
 const DEFAULT_TIMEOUT_MS: u64 = 4_000;
 
+#[derive(Debug)]
+struct ResolvedTarget {
+    display: String,
+    addrs: Vec<SocketAddr>,
+}
+
 #[tokio::main]
 async fn main() {
     let res = main_impl().await;
@@ -71,10 +77,10 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     let interval_ms = *matches.get_one::<u64>("interval").unwrap();
     let target = matches.get_one::<String>("target").unwrap();
 
-    let addr = resolve_target(target)?;
+    let target = resolve_target(target)?;
 
     // Warmup.
-    print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, true, continuous).await;
+    print_timed_ping(&target, DEFAULT_TIMEOUT_MS, true, continuous).await;
 
     // Actual timed ping.
     let mut stats = PingStats::new();
@@ -93,7 +99,7 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
                             break 'ping_loop;
                         }
                         result = print_timed_ping(
-                            &addr,
+                            &target,
                             DEFAULT_TIMEOUT_MS,
                             false,
                             continuous,
@@ -106,7 +112,7 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     } else {
         for _ in 0..count {
             time::sleep(Duration::from_millis(interval_ms)).await;
-            let result = print_timed_ping(&addr, DEFAULT_TIMEOUT_MS, false, continuous).await;
+            let result = print_timed_ping(&target, DEFAULT_TIMEOUT_MS, false, continuous).await;
             stats.record(result);
         }
     }
@@ -120,14 +126,22 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn resolve_target(target: &str) -> Result<SocketAddr, IOError> {
+fn resolve_target(target: &str) -> Result<ResolvedTarget, IOError> {
     match target.to_socket_addrs() {
-        Ok(mut addr_list) => addr_list.next().ok_or_else(|| {
-            IOError::new(
-                io::ErrorKind::InvalidInput,
-                format!("No addresses resolved for '{}'.", target),
-            )
-        }),
+        Ok(addr_list) => {
+            let addrs: Vec<_> = addr_list.collect();
+            if addrs.is_empty() {
+                Err(IOError::new(
+                    io::ErrorKind::InvalidInput,
+                    format!("No addresses resolved for '{}'.", target),
+                ))
+            } else {
+                Ok(ResolvedTarget {
+                    display: target.to_owned(),
+                    addrs,
+                })
+            }
+        }
         Err(err) => {
             let error_detail = fmt_err(&err);
             let message = if err.kind() == io::ErrorKind::InvalidInput {
@@ -145,7 +159,7 @@ fn resolve_target(target: &str) -> Result<SocketAddr, IOError> {
 }
 
 async fn print_timed_ping(
-    addr: &SocketAddr,
+    target: &ResolvedTarget,
     timeout_ms: u64,
     warmup: bool,
     time: bool,
@@ -153,20 +167,20 @@ async fn print_timed_ping(
     if warmup {
         if time {
             let now = Local::now().format("%H:%M:%S");
-            print!("[{}] {} (warmup): ", &now, addr);
+            print!("[{}] {} (warmup): ", &now, target.display);
         } else {
-            print!("> {} (warmup): ", addr);
+            print!("> {} (warmup): ", target.display);
         }
-
-        io::stdout().flush().unwrap();
     } else if time {
         let now = Local::now().format("%H:%M:%S");
-        print!("[{}] {}: ", &now, addr);
+        print!("[{}] {}: ", &now, target.display);
     } else {
-        print!("> {}: ", addr);
+        print!("> {}: ", target.display);
     }
 
-    match timed_ping(addr, timeout_ms).await {
+    io::stdout().flush().unwrap();
+
+    match timed_ping(&target.addrs, timeout_ms).await {
         Err(err) => {
             println!("{}", style(&err).cyan());
             None
@@ -178,18 +192,33 @@ async fn print_timed_ping(
     }
 }
 
-async fn timed_ping(addr: &SocketAddr, timeout_ms: u64) -> Result<f64, IOError> {
-    let start = Instant::now();
+fn timed_out_error() -> IOError {
+    IOError::new(io::ErrorKind::TimedOut, "connection timed out")
+}
 
-    let connect = TcpStream::connect(addr);
-    match time::timeout(Duration::from_millis(timeout_ms), connect).await {
-        Ok(Ok(_stream)) => Ok(start.elapsed().as_secs_f64() * 1000.0),
-        Ok(Err(err)) => Err(err),
-        Err(_) => Err(IOError::new(
-            io::ErrorKind::TimedOut,
-            "connection timed out",
-        )),
+async fn timed_ping(addrs: &[SocketAddr], timeout_ms: u64) -> Result<f64, IOError> {
+    let start = Instant::now();
+    let timeout = Duration::from_millis(timeout_ms);
+    let mut last_err = None;
+
+    for addr in addrs {
+        let Some(remaining) = timeout.checked_sub(start.elapsed()) else {
+            return Err(timed_out_error());
+        };
+
+        match time::timeout(remaining, TcpStream::connect(addr)).await {
+            Ok(Ok(_stream)) => return Ok(start.elapsed().as_secs_f64() * 1000.0),
+            Ok(Err(err)) => last_err = Some(err),
+            Err(_) => return Err(timed_out_error()),
+        }
     }
+
+    Err(last_err.unwrap_or_else(|| {
+        IOError::new(
+            io::ErrorKind::InvalidInput,
+            "No addresses available for probing.",
+        )
+    }))
 }
 
 struct PingStats {
@@ -306,7 +335,7 @@ mod tests {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
 
-        let result = timed_ping(&addr, DEFAULT_TIMEOUT_MS).await;
+        let result = timed_ping(&[addr], DEFAULT_TIMEOUT_MS).await;
         assert!(result.is_ok());
     }
 
@@ -317,13 +346,33 @@ mod tests {
         let addr = listener.local_addr().unwrap();
         drop(listener);
 
-        let result = timed_ping(&addr, 1).await;
+        let result = timed_ping(&[addr], 1).await;
         assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_timed_ping_tries_next_address_after_connect_error() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let reachable_addr = listener.local_addr().unwrap();
+
+        let failed_listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let failed_addr = failed_listener.local_addr().unwrap();
+        drop(failed_listener);
+
+        let result = timed_ping(&[failed_addr, reachable_addr], DEFAULT_TIMEOUT_MS).await;
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_resolve_target_success() {
+        let target = resolve_target("127.0.0.1:80").unwrap();
+        assert_eq!(target.display, "127.0.0.1:80");
+        assert_eq!(target.addrs.len(), 1);
     }
 
     #[test]
     fn test_fmt_err_formats_message() {
-        let err = io::Error::new(io::ErrorKind::Other, "sample error");
+        let err = io::Error::other("sample error");
         assert_eq!(fmt_err(&err), "Sample error.");
     }
 
