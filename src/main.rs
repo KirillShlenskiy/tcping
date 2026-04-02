@@ -2,6 +2,7 @@ use chrono::Local;
 use clap::{Arg, Command};
 use console::style;
 use std::error::Error;
+use std::fmt::Display;
 use std::io::{self, Error as IOError, Write};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::{Duration, Instant};
@@ -232,6 +233,16 @@ struct PingStats {
     sum: f64,
 }
 
+#[derive(Debug, PartialEq)]
+struct StatsSummary {
+    sent: usize,
+    received: usize,
+    success_percent: usize,
+    min: Option<f64>,
+    max: Option<f64>,
+    avg: Option<f64>,
+}
+
 impl PingStats {
     fn new() -> Self {
         Self {
@@ -260,41 +271,64 @@ impl PingStats {
             Some(self.sum / self.received as f64)
         }
     }
+
+    fn summary(&self) -> StatsSummary {
+        StatsSummary {
+            sent: self.sent,
+            received: self.received,
+            success_percent: self.received * 100 / self.sent,
+            min: self.min,
+            max: self.max,
+            avg: self.avg(),
+        }
+    }
+}
+
+fn format_stats_count_line(summary: &StatsSummary, success_percent: impl Display) -> String {
+    format!(
+        "  Sent = {}, Received = {} ({})",
+        summary.sent, summary.received, success_percent
+    )
+}
+
+fn format_stats_latency_line(summary: &StatsSummary) -> Option<String> {
+    if let (Some(min), Some(max), Some(avg)) = (summary.min, summary.max, summary.avg) {
+        Some(format!(
+            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
+            min, max, avg
+        ))
+    } else {
+        None
+    }
 }
 
 fn print_stats(stats: &PingStats) {
-    let success_percent = stats.received * 100 / stats.sent;
+    let summary = stats.summary();
 
     let formatted_percent = {
-        match success_percent {
+        match summary.success_percent {
             100 => format!(
                 "{}{}",
-                style(&success_percent).green().bold(),
+                style(&summary.success_percent).green().bold(),
                 style("%").green().bold()
             ),
             0 => format!(
                 "{}{}",
-                style(&success_percent).red().bold(),
+                style(&summary.success_percent).red().bold(),
                 style("%").red().bold()
             ),
             _ => format!(
                 "{}{}",
-                style(&success_percent).yellow(),
+                style(&summary.success_percent).yellow(),
                 style("%").yellow()
             ),
         }
     };
 
-    println!(
-        "  Sent = {}, Received = {} ({})",
-        stats.sent, stats.received, formatted_percent
-    );
+    println!("{}", format_stats_count_line(&summary, formatted_percent));
 
-    if let (Some(min), Some(max), Some(avg)) = (stats.min, stats.max, stats.avg()) {
-        println!(
-            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
-            min, max, avg
-        );
+    if let Some(line) = format_stats_latency_line(&summary) {
+        println!("{line}");
     }
 }
 
@@ -403,13 +437,70 @@ mod tests {
     }
 
     #[test]
-    fn test_print_stats() {
+    fn test_ping_stats_summary() {
         let mut stats = PingStats::new();
         for result in [Some(10.0), Some(20.0), Some(30.0), None] {
             stats.record(result);
         }
-        // This test will just execute the function to ensure it doesn't panic.
-        // We can't easily assert the output without capturing stdout.
-        print_stats(&stats);
+
+        assert_eq!(
+            stats.summary(),
+            StatsSummary {
+                sent: 4,
+                received: 3,
+                success_percent: 75,
+                min: Some(10.0),
+                max: Some(30.0),
+                avg: Some(20.0),
+            }
+        );
+    }
+
+    #[test]
+    fn test_format_stats_count_line() {
+        let summary = StatsSummary {
+            sent: 4,
+            received: 3,
+            success_percent: 75,
+            min: Some(10.0),
+            max: Some(30.0),
+            avg: Some(20.0),
+        };
+
+        assert_eq!(
+            format_stats_count_line(&summary, "75%"),
+            "  Sent = 4, Received = 3 (75%)"
+        );
+    }
+
+    #[test]
+    fn test_format_stats_latency_line() {
+        let summary = StatsSummary {
+            sent: 4,
+            received: 3,
+            success_percent: 75,
+            min: Some(10.0),
+            max: Some(30.0),
+            avg: Some(20.0),
+        };
+
+        assert_eq!(
+            format_stats_latency_line(&summary),
+            Some("  Minimum = 10.00ms, Maximum = 30.00ms, Average = 20.00ms".to_string())
+        );
+    }
+
+    #[test]
+    fn test_format_stats_latency_line_without_successes() {
+        let summary = StatsSummary {
+            sent: 4,
+            received: 0,
+            success_percent: 0,
+            min: None,
+            max: None,
+            avg: None,
+        };
+
+        assert_eq!(format_stats_latency_line(&summary), None);
     }
 }
