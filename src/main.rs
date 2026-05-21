@@ -22,7 +22,7 @@ async fn main() {
 fn build_cli() -> Command {
     Command::new("tcping")
         .about(concat!(
-            "TCP ping utility by Kirill Shlenskiy (2024) v",
+            "TCP ping utility by Kirill Shlenskiy (2026) v",
             env!("CARGO_PKG_VERSION")
         ))
         .arg(

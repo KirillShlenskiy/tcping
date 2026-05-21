@@ -19,7 +19,7 @@ Cross-platform TCP connect monitoring and latency measurement tool, similar to [
 
 ```
 $ tcping --help
-TCP ping utility by Kirill Shlenskiy (2024) v0.9.10
+TCP ping utility by Kirill Shlenskiy (2026) v0.10.0
 
 Usage: tcping[.exe] [OPTIONS] <target>
 
