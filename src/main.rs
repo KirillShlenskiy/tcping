@@ -2,7 +2,7 @@ use chrono::Local;
 use clap::{Arg, Command};
 use console::style;
 use std::error::Error;
-use std::io::{self, Error as IOError, Write};
+use std::io::{self, Error as IoError, Write};
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::time::{Duration, Instant};
 use tokio::{net::TcpStream, signal, time};
@@ -14,7 +14,7 @@ async fn main() {
     let res = main_impl().await;
 
     if let Err(err) = res {
-        println!("{} {}", style("Error:").red().bold(), err);
+        eprintln!("{} {}", style("Error:").red().bold(), err);
         std::process::exit(1);
     }
 }
@@ -87,7 +87,7 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
                 _ = &mut ctrl_c => {
                     break 'ping_loop;
                 }
-                _ = time::sleep(Duration::from_millis(interval_ms)) => {
+                () = time::sleep(Duration::from_millis(interval_ms)) => {
                     let result = tokio::select! {
                         _ = &mut ctrl_c => {
                             break 'ping_loop;
@@ -120,26 +120,25 @@ async fn main_impl() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn resolve_target(target: &str) -> Result<SocketAddr, IOError> {
+fn resolve_target(target: &str) -> Result<SocketAddr, IoError> {
     match target.to_socket_addrs() {
         Ok(mut addr_list) => addr_list.next().ok_or_else(|| {
-            IOError::new(
+            IoError::new(
                 io::ErrorKind::InvalidInput,
-                format!("No addresses resolved for '{}'.", target),
+                format!("No addresses resolved for '{target}'."),
             )
         }),
         Err(err) => {
             let error_detail = fmt_err(&err);
             let message = if err.kind() == io::ErrorKind::InvalidInput {
                 format!(
-                    "Invalid target '{}'. Expected format: 'host:port' (i.e. 'google.com:80'). {}",
-                    target, error_detail
+                    "Invalid target '{target}'. Expected format: 'host:port' (i.e. 'google.com:80'). {error_detail}"
                 )
             } else {
-                format!("Failed to resolve target '{}': {}", target, error_detail)
+                format!("Failed to resolve target '{target}': {error_detail}")
             };
 
-            Err(IOError::new(err.kind(), message))
+            Err(IoError::new(err.kind(), message))
         }
     }
 }
@@ -148,22 +147,22 @@ async fn print_timed_ping(
     addr: &SocketAddr,
     timeout_ms: u64,
     warmup: bool,
-    time: bool,
+    show_timestamp: bool,
 ) -> Option<f64> {
     if warmup {
-        if time {
+        if show_timestamp {
             let now = Local::now().format("%H:%M:%S");
             print!("[{}] {} (warmup): ", &now, addr);
         } else {
-            print!("> {} (warmup): ", addr);
+            print!("> {addr} (warmup): ");
         }
 
         io::stdout().flush().unwrap();
-    } else if time {
+    } else if show_timestamp {
         let now = Local::now().format("%H:%M:%S");
         print!("[{}] {}: ", &now, addr);
     } else {
-        print!("> {}: ", addr);
+        print!("> {addr}: ");
     }
 
     match timed_ping(addr, timeout_ms).await {
@@ -178,14 +177,14 @@ async fn print_timed_ping(
     }
 }
 
-async fn timed_ping(addr: &SocketAddr, timeout_ms: u64) -> Result<f64, IOError> {
+async fn timed_ping(addr: &SocketAddr, timeout_ms: u64) -> Result<f64, IoError> {
     let start = Instant::now();
 
     let connect = TcpStream::connect(addr);
     match time::timeout(Duration::from_millis(timeout_ms), connect).await {
         Ok(Ok(_stream)) => Ok(start.elapsed().as_secs_f64() * 1000.0),
         Ok(Err(err)) => Err(err),
-        Err(_) => Err(IOError::new(
+        Err(_) => Err(IoError::new(
             io::ErrorKind::TimedOut,
             "connection timed out",
         )),
@@ -259,40 +258,27 @@ fn print_stats(stats: &PingStats) {
     );
 
     if let (Some(min), Some(max), Some(avg)) = (stats.min, stats.max, stats.avg()) {
-        println!(
-            "  Minimum = {:.2}ms, Maximum = {:.2}ms, Average = {:.2}ms",
-            min, max, avg
-        );
+        println!("  Minimum = {min:.2}ms, Maximum = {max:.2}ms, Average = {avg:.2}ms");
     }
 }
 
 fn fmt_err(err: &impl Error) -> String {
-    let mut desc = Vec::new();
-    {
-        let desc_orig = err.to_string();
-        let desc_chars = desc_orig.chars();
-
-        for c in desc_chars {
-            // Capitalise first letter.
-            if desc.is_empty() && c.is_lowercase() {
-                for u in c.to_uppercase() {
-                    desc.push(u);
-                }
-            } else {
-                desc.push(c);
-            }
+    let message = err.to_string();
+    let mut chars = message.chars();
+    let mut desc = match chars.next() {
+        Some(first) => {
+            let mut formatted = first.to_uppercase().collect::<String>();
+            formatted.extend(chars);
+            formatted
         }
-    }
+        None => String::new(),
+    };
 
-    // Ensure there is a full stop at the end.
-    if let Some(last_char) = desc.last()
-        && last_char != &'.'
-    {
+    if !desc.ends_with('.') {
         desc.push('.');
     }
 
-    // Collect Vec<char> -> String.
-    desc.iter().collect()
+    desc
 }
 
 #[cfg(test)]
@@ -311,7 +297,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_timed_ping_timeout() {
+    async fn test_timed_ping_connection_failure() {
         // Find an unused port.
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let addr = listener.local_addr().unwrap();
@@ -323,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_fmt_err_formats_message() {
-        let err = io::Error::new(io::ErrorKind::Other, "sample error");
+        let err = io::Error::other("sample error");
         assert_eq!(fmt_err(&err), "Sample error.");
     }
 

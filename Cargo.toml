@@ -11,7 +11,6 @@ clap = "4.6.1"
 console = "0.16.3"
 tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread", "time", "net", "signal"] }
 
-
 [target.'cfg(target_os="windows")'.build-dependencies]
 winres = "0.1.12"
 
